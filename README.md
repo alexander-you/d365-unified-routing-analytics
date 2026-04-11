@@ -2,7 +2,9 @@
 
 A Dynamics 365 Customer Service solution that provides visual routing diagnostics and an embedded AI assistant for investigating unified routing behavior.
 
-https://vimeo.com/1182228641?share=copy&fl=sv&fe=ci
+https://vimeo.com/1182228641
+
+https://www.linkedin.com/posts/alexander-yurpolsky-89b14194_dynamics365-customerservice-powerplatform-ugcPost-7448742530138980352-cQEc?utm_source=share&utm_medium=member_desktop&rcm=ACoAABP0G7cBWu8qnysT85XIAVloyAN_DKrMMKo
 
 ## Architecture
 
