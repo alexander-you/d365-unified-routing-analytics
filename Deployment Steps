@@ -1,0 +1,52 @@
+## Deployment Steps
+
+To install this solution in a new Dynamics 365 environment, follow these steps in exact order. 
+
+### Step 1: Register an Entra ID App (Authentication)
+Before importing the solution, you must create an App Registration to securely authenticate the users.
+
+1. Go to **Azure Portal → Microsoft Entra ID → App registrations → New registration**.
+2. **Name**: `Unified Routing Analytics`
+3. **Supported account types**: Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant).
+4. **Redirect URI**: Select **Single-page application (SPA)** and enter: `https://token.botframework.com/.auth/web/redirect`
+5. Under **API Permissions**, click **Add a permission** → **APIs my organization uses** → search for **Power Platform API**.
+   - Add the delegated permission: `CopilotStudio.Copilots.Invoke`
+   - Grant admin consent for your organization.
+6. Under **Expose an API**:
+   - Click **Add** next to Application ID URI (it will generate `api://<client-id>`).
+   - Click **Add a scope**. Name it `access_as_user` (Who can consent: Admins and users).
+7. Under **Certificates & secrets**:
+   - Create a **New client secret**. Copy and save the **Secret Value** immediately (it will be hidden later).
+8. Copy the **Application (client) ID**.
+
+### Step 2: Import the Managed Solution
+Now, import the pre-packaged solution containing the Web Resources, Custom API, and Copilot Studio Bot.
+
+1. Download the latest managed solution `.zip` file from the `solutions/` folder in this repository (or from the Releases page).
+2. Go to [Power Apps Maker Portal](https://make.powerapps.com) and select your target environment.
+3. Navigate to **Solutions** → **Import solution** → upload the `.zip` file.
+4. During the import wizard, you will be prompted to configure **Connection References** (Dataverse and Azure Monitor Logs) and **Environment Variables**.
+5. When prompted for `alex_AppClientId`, paste the **Client ID** you copied in Step 1.
+6. Provide the Azure Log Analytics details (`Subscription`, `ResourceGroup`, `WorkspaceName`) for the telemetry queries.
+7. Click **Import**.
+
+### Step 3: Configure the Copilot Studio Bot
+The bot needs to know about the Entra ID app you created to perform secure Token Exchange.
+
+1. Open the imported **Routing Insight** agent in Copilot Studio.
+2. Navigate to **Settings → Security → Authentication**.
+3. Select **Authenticate manually** and check **Require users to sign in**.
+4. Fill in the following details:
+   - **Service provider:** `Microsoft Entra ID V2 with federated credentials`
+   - **Client ID:** Paste your Client ID.
+   - **Client secret:** Paste the Secret Value from Step 1.
+   - **Token exchange URL:** `api://<your-client-id>`
+   - **Scopes:** `profile openid api://<your-client-id>/access_as_user`
+5. Go to the **Tools** section, open the `GetRoutingDiagnosticsResults` action, and ensure **Credentials to use** is set to **End user credentials**.
+6. Save your changes and click the **Publish** button to make the bot live.
+
+### Step 4: Verify
+1. Open your Customer Service Workspace or relevant Model-Driven App.
+2. Navigate to the Routing Diagnostic Web Resource.
+3. Enter a conversation GUID. The timeline should render successfully.
+4. Click the floating Copilot button. The bot should connect silently via SSO and be ready to investigate the routing data!
