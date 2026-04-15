@@ -1,338 +1,1367 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Unified Routing Analytics</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Routing Analytics</title>
 
-<script src="../ClientGlobalContext.js.aspx" type="text/javascript"></script>
-<script src="https://unpkg.com/botframework-webchat@4.18.0/dist/webchat.js"></script>
-<script src="https://unpkg.com/@azure/msal-browser@4.13.1/lib/msal-browser.js"></script>
-<script type="importmap">
-  {
-    "imports": {
-      "@microsoft/agents-copilotstudio-client": "https://unpkg.com/@microsoft/agents-copilotstudio-client@1.0.15/dist/src/browser.mjs"
-    }
-  }
-</script>
+    <script src="../ClientGlobalContext.js.aspx" type="text/javascript"></script>
+    <script src="https://unpkg.com/botframework-webchat@4.18.0/dist/webchat.js"></script>
+    <script src="https://unpkg.com/@azure/msal-browser@4.13.1/lib/msal-browser.js"></script>
+    <script type="importmap">
+        {
+          "imports": {
+            "@microsoft/agents-copilotstudio-client": "https://unpkg.com/@microsoft/agents-copilotstudio-client@1.0.15/dist/src/browser.mjs"
+          }
+        }
+    </script>
 
-<style>
-  :root {
-    --bg: #0f1117; --surface: #1a1d27; --surface-hover: #222633; --border: #2a2e3d;
-    --text: #e2e4ea; --text-muted: #8b8fa3; --text-dim: #5c6078;
-    --accent: #6c8aff; --accent-dim: rgba(108,138,255,0.12);
-    --success: #34d399; --success-dim: rgba(52,211,153,0.12);
-    --warning: #fbbf24; --warning-dim: rgba(251,191,36,0.12);
-    --error: #f87171; --error-dim: rgba(248,113,113,0.12);
-    --info: #60a5fa; --info-dim: rgba(96,165,250,0.12);
-    --radius: 8px;
-    --font: 'Segoe UI', -apple-system, sans-serif;
-    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-  }
-  html.light {
-    --bg: #f4f5f7; --surface: #ffffff; --surface-hover: #f0f1f4; --border: #d8dbe3;
-    --text: #1a1d27; --text-muted: #5c6078; --text-dim: #8b8fa3;
-    --accent: #4a6cf7; --accent-dim: rgba(74,108,247,0.10);
-    --success: #16a34a; --success-dim: rgba(22,163,74,0.10);
-    --warning: #ca8a04; --warning-dim: rgba(202,138,4,0.10);
-    --error: #dc2626; --error-dim: rgba(220,38,38,0.10);
-    --info: #2563eb; --info-dim: rgba(37,99,235,0.10);
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; }
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface-hover: #222633;
+            --border: #2a2e3d;
+            --text: #e2e4ea;
+            --text-muted: #8b8fa3;
+            --text-dim: #5c6078;
+            --accent: #6c8aff;
+            --accent-dim: rgba(108,138,255,0.12);
+            --success: #34d399;
+            --success-dim: rgba(52,211,153,0.12);
+            --warning: #fbbf24;
+            --warning-dim: rgba(251,191,36,0.12);
+            --error: #f87171;
+            --error-dim: rgba(248,113,113,0.12);
+            --info: #60a5fa;
+            --info-dim: rgba(96,165,250,0.12);
+            --radius: 8px;
+            --font: 'Segoe UI', -apple-system, sans-serif;
+            --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        }
 
-  .search-container { position: sticky; top: 0; z-index: 100; background: var(--bg); border-bottom: 1px solid var(--border); padding: 16px 24px; }
-  .search-inner { max-width: 960px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
-  .search-inner .logo { font-size: 14px; font-weight: 700; letter-spacing: 0.5px; color: var(--accent); white-space: nowrap; }
-  .search-input-wrap { flex: 1; position: relative; }
-  .search-input-wrap input { width: 100%; padding: 10px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 13px; outline: none; transition: border-color 0.2s; }
-  .search-input-wrap input::placeholder { color: var(--text-dim); }
-  .search-input-wrap input:focus { border-color: var(--accent); }
-  .btn-search { padding: 10px 20px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
-  .btn-search:hover { opacity: 0.85; }
-  .btn-search:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn-theme { padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-muted); font-size: 15px; cursor: pointer; transition: border-color 0.2s; line-height: 1; }
-  .btn-theme:hover { border-color: var(--accent); }
+        html.light {
+            --bg: #f4f5f7;
+            --surface: #ffffff;
+            --surface-hover: #f0f1f4;
+            --border: #d8dbe3;
+            --text: #1a1d27;
+            --text-muted: #5c6078;
+            --text-dim: #8b8fa3;
+            --accent: #4a6cf7;
+            --accent-dim: rgba(74,108,247,0.10);
+            --success: #16a34a;
+            --success-dim: rgba(22,163,74,0.10);
+            --warning: #ca8a04;
+            --warning-dim: rgba(202,138,4,0.10);
+            --error: #dc2626;
+            --error-dim: rgba(220,38,38,0.10);
+            --info: #2563eb;
+            --info-dim: rgba(37,99,235,0.10);
+        }
 
-  .main { max-width: 960px; margin: 0 auto; padding: 24px; }
-  .summary-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 28px; }
-  .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
-  .summary-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 4px; }
-  .summary-card .value { font-size: 18px; font-weight: 700; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  .timeline { position: relative; padding-left: 32px; }
-  .timeline::before { content: ''; position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; background: var(--border); }
-  .tl-item { position: relative; margin-bottom: 4px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.35s ease forwards; }
-  .tl-dot { position: absolute; left: -32px; top: 16px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; z-index: 2; }
-  .tl-dot.success { background: var(--success-dim); color: var(--success); border: 2px solid var(--success); }
-  .tl-dot.warning { background: var(--warning-dim); color: var(--warning); border: 2px solid var(--warning); }
-  .tl-dot.error   { background: var(--error-dim);   color: var(--error);   border: 2px solid var(--error); }
-  .tl-dot.info    { background: var(--info-dim);     color: var(--info);    border: 2px solid var(--info); }
-  .tl-dot.neutral { background: var(--accent-dim);   color: var(--accent);  border: 2px solid var(--accent); }
-  .tl-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: border-color 0.2s; }
-  .tl-card:hover { border-color: var(--text-dim); }
-  html.light .summary-card, html.light .tl-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-  .tl-header { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
-  .tl-header-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
-  .tl-stage { font-size: 13px; font-weight: 600; }
-  .tl-stage-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
-  .badge-success { background: var(--success-dim); color: var(--success); }
-  .badge-warning { background: var(--warning-dim); color: var(--warning); }
-  .badge-error   { background: var(--error-dim);   color: var(--error); }
-  .badge-info    { background: var(--info-dim);     color: var(--info); }
-  .tl-time { font-size: 11px; font-family: var(--mono); color: var(--text-dim); white-space: nowrap; margin-left: 8px; }
-  .tl-delta { font-size: 10px; color: var(--text-muted); margin-left: 8px; white-space: nowrap; }
-  .tl-chevron { font-size: 12px; color: var(--text-dim); transition: transform 0.2s; margin-left: 8px; }
-  .tl-item.open .tl-chevron { transform: rotate(90deg); }
-  .tl-body { display: none; padding: 0 16px 14px; border-top: 1px solid var(--border); }
-  .tl-item.open .tl-body { display: block; }
-  .tl-desc { font-size: 12px; color: var(--text-muted); padding: 10px 0; line-height: 1.6; }
-  .tl-detail-group { margin-top: 8px; }
-  .tl-detail-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-bottom: 4px; font-weight: 600; }
-  .tl-json { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-family: var(--mono); font-size: 11px; color: var(--text-muted); line-height: 1.6; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-  .tl-kv-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 12px; }
-  .tl-kv-grid .k { color: var(--text-dim); white-space: nowrap; }
-  .tl-kv-grid .v { color: var(--text); font-family: var(--mono); font-size: 11px; word-break: break-all; }
-  .tl-kv-grid .v.highlight { color: var(--accent); font-weight: 600; }
-  .tl-kv-grid .v.success { color: var(--success); }
-  .tl-kv-grid .v.warning { color: var(--warning); }
-  .tl-kv-grid .v.error { color: var(--error); }
-  .ri-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
-  .ri-table th { text-align: left; padding: 6px 10px; background: var(--bg); color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
-  .ri-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-family: var(--mono); font-size: 11px; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
 
-  .empty-state { text-align: center; padding: 80px 24px; color: var(--text-dim); }
-  .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
-  .empty-state h2 { font-size: 16px; color: var(--text-muted); margin-bottom: 8px; }
-  .loading-state { text-align: center; padding: 60px 24px; color: var(--text-muted); }
-  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .error-state { text-align: center; padding: 40px 24px; color: var(--error); font-size: 13px; }
-  @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+        /* Search Bar */
+        .search-container {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+        }
 
-  .copilot-fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #4a6cf7, #6c8aff); border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(74,108,247,0.35); display: flex; align-items: center; justify-content: center; z-index: 1000; transition: transform 0.2s, box-shadow 0.2s; }
-  .copilot-fab:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(74,108,247,0.45); }
-  .copilot-fab svg { width: 26px; height: 26px; fill: #fff; }
-  .copilot-fab.hidden { display: none; }
-  .copilot-panel { position: fixed; bottom: 24px; right: 24px; width: 550px; height: 900px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 8px 40px rgba(0,0,0,0.15); z-index: 1001; display: none; flex-direction: column; overflow: hidden; }
-  .copilot-panel.open { display: flex; }
-  .copilot-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: linear-gradient(135deg, #4a6cf7, #6c8aff); color: #fff; }
-  .copilot-header-left { display: flex; align-items: center; gap: 10px; }
-  .copilot-header-left svg { width: 22px; height: 22px; fill: #fff; }
-  .copilot-header-left .title { font-size: 14px; font-weight: 700; }
-  .copilot-header-left .subtitle { font-size: 10px; opacity: 0.8; }
-  .copilot-header-btns { display: flex; gap: 4px; }
-  .copilot-header-btns button { width: 30px; height: 30px; border-radius: 6px; border: none; background: rgba(255,255,255,0.15); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
-  .copilot-header-btns button:hover { background: rgba(255,255,255,0.25); }
-  .copilot-webchat { flex: 1; overflow: hidden; }
-  .copilot-webchat > * { height: 100%; }
-  .copilot-loading { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-muted); font-size: 13px; }
-  .copilot-loading .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-  .copilot-error { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; color: var(--error); font-size: 13px; text-align: center; }
-  @media (max-width: 480px) { .copilot-panel { width: calc(100vw - 16px); height: calc(100vh - 80px); bottom: 8px; right: 8px; border-radius: 12px; } }
-</style>
+        .search-inner {
+            max-width: 960px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .search-inner .logo {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+
+        .search-input-wrap {
+            flex: 1;
+            position: relative;
+        }
+
+        .search-input-wrap input {
+            width: 100%;
+            padding: 10px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input-wrap input::placeholder {
+            color: var(--text-dim);
+        }
+
+        .search-input-wrap input:focus {
+            border-color: var(--accent);
+        }
+
+        .btn-search {
+            padding: 10px 20px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-search:hover {
+            opacity: 0.85;
+        }
+
+        .btn-search:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-theme {
+            padding: 10px 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text-muted);
+            font-size: 15px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            line-height: 1;
+        }
+
+        .btn-theme:hover {
+            border-color: var(--accent);
+        }
+
+        /* Main Content */
+        .main {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Summary Cards */
+        .summary-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .summary-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+        }
+
+        .summary-card .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .summary-card .value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .summary-card .sub {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 32px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .tl-item {
+            position: relative;
+            margin-bottom: 4px;
+        }
+
+        .tl-dot {
+            position: absolute;
+            left: -32px;
+            top: 16px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            z-index: 2;
+        }
+
+        .tl-dot.success {
+            background: var(--success-dim);
+            color: var(--success);
+            border: 2px solid var(--success);
+        }
+
+        .tl-dot.warning {
+            background: var(--warning-dim);
+            color: var(--warning);
+            border: 2px solid var(--warning);
+        }
+
+        .tl-dot.error {
+            background: var(--error-dim);
+            color: var(--error);
+            border: 2px solid var(--error);
+        }
+
+        .tl-dot.info {
+            background: var(--info-dim);
+            color: var(--info);
+            border: 2px solid var(--info);
+        }
+
+        .tl-dot.neutral {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 2px solid var(--accent);
+        }
+
+        .tl-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .tl-card:hover {
+            border-color: var(--text-dim);
+        }
+
+        html.light .summary-card,
+        html.light .tl-card {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+
+        .tl-header {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .tl-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .tl-stage {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .tl-stage-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .badge-success {
+            background: var(--success-dim);
+            color: var(--success);
+        }
+
+        .badge-warning {
+            background: var(--warning-dim);
+            color: var(--warning);
+        }
+
+        .badge-error {
+            background: var(--error-dim);
+            color: var(--error);
+        }
+
+        .badge-info {
+            background: var(--info-dim);
+            color: var(--info);
+        }
+
+        .tl-time {
+            font-size: 11px;
+            font-family: var(--mono);
+            color: var(--text-dim);
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+
+        .tl-delta {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+
+        .tl-chevron {
+            font-size: 12px;
+            color: var(--text-dim);
+            transition: transform 0.2s;
+            margin-left: 8px;
+        }
+
+        .tl-item.open .tl-chevron {
+            transform: rotate(90deg);
+        }
+
+        .tl-body {
+            display: none;
+            padding: 0 16px 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .tl-item.open .tl-body {
+            display: block;
+        }
+
+        .tl-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            padding: 10px 0;
+            line-height: 1.6;
+        }
+
+        .tl-detail-group {
+            margin-top: 8px;
+        }
+
+        .tl-detail-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .tl-json {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .tl-kv-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 16px;
+            font-size: 12px;
+        }
+
+        .tl-kv-grid .k {
+            color: var(--text-dim);
+            white-space: nowrap;
+        }
+
+        .tl-kv-grid .v {
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 11px;
+            word-break: break-all;
+        }
+
+        .tl-kv-grid .v.highlight {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .tl-kv-grid .v.success {
+            color: var(--success);
+        }
+
+        .tl-kv-grid .v.warning {
+            color: var(--warning);
+        }
+
+        .tl-kv-grid .v.error {
+            color: var(--error);
+        }
+
+        /* RI Results Table */
+        .ri-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        .ri-table th {
+            text-align: left;
+            padding: 6px 10px;
+            background: var(--bg);
+            color: var(--text-dim);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .ri-table td {
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+            font-family: var(--mono);
+            font-size: 11px;
+        }
+
+        /* States */
+        .empty-state {
+            text-align: center;
+            padding: 80px 24px;
+            color: var(--text-dim);
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        .empty-state h2 {
+            font-size: 16px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 60px 24px;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error-state {
+            text-align: center;
+            padding: 40px 24px;
+            color: var(--error);
+            font-size: 13px;
+        }
+
+        /* Animations */
+        .tl-item {
+            opacity: 0;
+            transform: translateY(12px);
+            animation: fadeUp 0.35s ease forwards;
+        }
+
+        @keyframes fadeUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Floating Copilot Widget */
+        .copilot-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4a6cf7, #6c8aff);
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(74,108,247,0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .copilot-fab:hover {
+            transform: scale(1.08);
+            box-shadow: 0 6px 24px rgba(74,108,247,0.45);
+        }
+
+        .copilot-fab svg {
+            width: 26px;
+            height: 26px;
+            fill: #fff;
+        }
+
+        .copilot-fab.hidden {
+            display: none;
+        }
+
+        .copilot-panel {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 550px;
+            height: 900px;
+            border-radius: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+            z-index: 1001;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .copilot-panel.open {
+            display: flex;
+        }
+
+        .copilot-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background: linear-gradient(135deg, #4a6cf7, #6c8aff);
+            color: #fff;
+        }
+
+        .copilot-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .copilot-header-left svg {
+            width: 22px;
+            height: 22px;
+            fill: #fff;
+        }
+
+        .copilot-header-left .title {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .copilot-header-left .subtitle {
+            font-size: 10px;
+            opacity: 0.8;
+        }
+
+        .copilot-header-btns {
+            display: flex;
+            gap: 4px;
+        }
+
+        .copilot-header-btns button {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            border: none;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .copilot-header-btns button:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .copilot-webchat {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .copilot-webchat > * {
+            height: 100%;
+        }
+
+        .copilot-loading {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .copilot-loading .spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .copilot-error {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            color: var(--error);
+            font-size: 13px;
+            text-align: center;
+        }
+
+        @media (max-width: 480px) {
+            .copilot-panel {
+                width: calc(100vw - 16px);
+                height: calc(100vh - 80px);
+                bottom: 8px;
+                right: 8px;
+                border-radius: 12px;
+            }
+        }
+    </style>
 </head>
 <body>
 
-<div class="search-container">
-  <div class="search-inner">
-    <div class="logo">ROUTING ANALYTICS</div>
-    <div class="search-input-wrap">
-      <input type="text" id="guidInput" placeholder="Enter Conversation GUID (e.g. b37f3827-47d6-43b2-a211-158382f9b33a)" />
+    <div class="search-container">
+        <div class="search-inner">
+            <div class="logo">ROUTING ANALYTICS</div>
+            <div class="search-input-wrap">
+                <input type="text" id="guidInput" placeholder="Enter Conversation GUID (e.g. b37f3827-47d6-43b2-a211-158382f9b33a)" />
+            </div>
+            <button class="btn-search" id="btnSearch" onclick="doSearch()">Analyze</button>
+            <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
+        </div>
     </div>
-    <button class="btn-search" id="btnSearch" onclick="doSearch()">Analyze</button>
-    <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
-  </div>
-</div>
 
-<div class="main" id="mainContent">
-  <div class="empty-state">
-    <div class="icon">⊘</div>
-    <h2>Enter a Conversation ID to begin</h2>
-    <p>Paste a GUID above to visualize the routing lifecycle</p>
-  </div>
-</div>
-
-<button class="copilot-fab" id="copilotFab" onclick="toggleCopilot()" title="Routing Insight">
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.74.46 3.37 1.26 4.78L2 22l5.22-1.26C8.63 21.54 10.26 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm-1 15h-1.5v-1.5H11V17zm2.09-5.13l-.78.79c-.55.56-.81 1.01-.81 1.84H9v-.5c0-.83.45-1.59 1.09-2.22l1.07-1.09c.3-.3.53-.72.53-1.19 0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5H7c0-1.93 1.57-3.5 3.5-3.5s3.5 1.57 3.5 3.5c0 .77-.31 1.47-.82 1.97l.01.1-.1-.1z"/></svg>
-</button>
-
-<div class="copilot-panel" id="copilotPanel">
-  <div class="copilot-header">
-    <div class="copilot-header-left">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.74.46 3.37 1.26 4.78L2 22l5.22-1.26C8.63 21.54 10.26 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm-1 15h-1.5v-1.5H11V17zm2.09-5.13l-.78.79c-.55.56-.81 1.01-.81 1.84H9v-.5c0-.83.45-1.59 1.09-2.22l1.07-1.09c.3-.3.53-.72.53-1.19 0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5H7c0-1.93 1.57-3.5 3.5-3.5s3.5 1.57 3.5 3.5c0 .77-.31 1.47-.82 1.97l.01.1-.1-.1z"/></svg>
-      <div>
-        <div class="title">Routing Insight</div>
-        <div class="subtitle">Unified Routing Diagnostics Assistant</div>
-      </div>
+    <div class="main" id="mainContent">
+        <div class="empty-state">
+            <div class="icon">⊘</div>
+            <h2>Enter a Conversation ID to begin</h2>
+            <p>Paste a GUID above to visualize the routing lifecycle</p>
+        </div>
     </div>
-    <div class="copilot-header-btns">
-      <button onclick="restartCopilot()" title="Restart conversation"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg></button>
-      <button onclick="closeCopilot()" title="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-    </div>
-  </div>
-  <div class="copilot-webchat" id="copilotWebChat"></div>
-</div>
 
-<script>
-// ════════════════════════════════════════════════
-// Configuration
-// ════════════════════════════════════════════════
+    <button class="copilot-fab" id="copilotFab" onclick="toggleCopilot()" title="Routing Insight">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12c0 1.74.46 3.37 1.26 4.78L2 22l5.22-1.26C8.63 21.54 10.26 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm-1 15h-1.5v-1.5H11V17zm2.09-5.13l-.78.79c-.55.56-.81 1.01-.81 1.84H9v-.5c0-.83.45-1.59 1.09-2.22l1.07-1.09c.3-.3.53-.72.53-1.19 0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5H7c0-1.93 1.57-3.5 3.5-3.5s3.5 1.57 3.5 3.5c0 .77-.31 1.47-.82 1.97l.01.1-.1-.1z" />
+        </svg>
+    </button>
+
+    <div class="copilot-panel" id="copilotPanel">
+        <div class="copilot-header">
+            <div class="copilot-header-left">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12c0 1.74.46 3.37 1.26 4.78L2 22l5.22-1.26C8.63 21.54 10.26 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm-1 15h-1.5v-1.5H11V17zm2.09-5.13l-.78.79c-.55.56-.81 1.01-.81 1.84H9v-.5c0-.83.45-1.59 1.09-2.22l1.07-1.09c.3-.3.53-.72.53-1.19 0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5H7c0-1.93 1.57-3.5 3.5-3.5s3.5 1.57 3.5 3.5c0 .77-.31 1.47-.82 1.97l.01.1-.1-.1z" />
+                </svg>
+                <div>
+                    <div class="title">Routing Insight</div>
+                    <div class="subtitle">Unified Routing Diagnostics Assistant</div>
+                </div>
+            </div>
+            <div class="copilot-header-btns">
+                <button onclick="restartCopilot()" title="Restart conversation">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                        <path d="M3 3v5h5"></path>
+                    </svg>
+                </button>
+                <button onclick="closeCopilot()" title="Close">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="copilot-webchat" id="copilotWebChat"></div>
+    </div>
+
+    <script>
 const DEMO_MODE = typeof Xrm === 'undefined' && typeof window.parent?.Xrm === 'undefined';
 const TABLE_NAME = 'alex_routing_diagnostics_result';
 const CUSTOM_API_NAME = 'alex_GetRoutingDiagnostics';
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 30;
 
-// ════════════════════════════════════════════════
-// Theme
-// ════════════════════════════════════════════════
 function toggleTheme() {
-  const isLight = document.documentElement.classList.toggle('light');
+  const html = document.documentElement;
+  const isLight = html.classList.toggle('light');
   document.getElementById('btnTheme').textContent = isLight ? '🌙' : '☀️';
-  try { localStorage.setItem('ura-theme', isLight ? 'light' : 'dark'); } catch(_) {}
+  try { localStorage.setItem('ura-theme', isLight ? 'light' : 'dark'); } catch (_) {}
 }
+
 (function initTheme() {
-  try { if (localStorage.getItem('ura-theme') === 'dark') return; document.documentElement.classList.add('light'); document.addEventListener('DOMContentLoaded', () => { const b = document.getElementById('btnTheme'); if (b) b.textContent = '🌙'; }); } catch(_) { document.documentElement.classList.add('light'); }
+  try {
+    if (localStorage.getItem('ura-theme') === 'dark') return;
+    document.documentElement.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('btnTheme');
+      if (btn) btn.textContent = '🌙';
+    });
+  } catch (_) {
+    document.documentElement.classList.add('light');
+  }
 })();
 
-// ════════════════════════════════════════════════
-// Helpers
-// ════════════════════════════════════════════════
 const STAGE_META = {
-  ConversationCreated: { label: 'Conversation Created', status: 'info' }, ConversationDetails: { label: 'Conversation Details', status: 'info' },
-  RecordDetails: { label: 'Record Details', status: 'info' }, RecordIdentification: { label: 'Record Identification', status: 'dynamic' },
-  UserGroupIdentification: { label: 'User Group Identification', status: 'info' }, RouteToQueue: { label: 'Route to Queue', status: 'success' },
-  CSRAssignment: { label: 'Agent Assignment', status: 'dynamic' }, CSRAccepted: { label: 'Agent Accepted', status: 'success' },
-  CSREndedConversation: { label: 'Conversation Ended', status: 'neutral' }, CSRClosedSession: { label: 'Session Closed', status: 'neutral' },
-  ConversationClosed: { label: 'Conversation Closed', status: 'neutral' }
+  ConversationCreated: { label: 'Conversation Created', icon: '●', status: 'info' },
+  ConversationDetails: { label: 'Conversation Details', icon: '●', status: 'info' },
+  RecordDetails: { label: 'Record Details', icon: '●', status: 'info' },
+  RecordIdentification: { label: 'Record Identification', icon: '●', status: 'dynamic' },
+  UserGroupIdentification: { label: 'User Group Identification', icon: '●', status: 'info' },
+  RouteToQueue: { label: 'Route to Queue', icon: '●', status: 'success' },
+  CSRAssignment: { label: 'Agent Assignment', icon: '●', status: 'dynamic' },
+  CSRAccepted: { label: 'Agent Accepted', icon: '●', status: 'success' },
+  CSREndedConversation: { label: 'Conversation Ended', icon: '●', status: 'neutral' },
+  CSRClosedSession: { label: 'Session Closed', icon: '●', status: 'neutral' },
+  ConversationClosed: { label: 'Conversation Closed', icon: '●', status: 'neutral' }
 };
-function getStageLabel(s) { return STAGE_META[s]?.label || s; }
-function safeParseJson(s) { if (!s) return null; try { return JSON.parse(s); } catch { return null; } }
-function getStageStatus(e) {
-  const m = STAGE_META[e.stage]; if (!m) return 'neutral'; if (m.status !== 'dynamic') return m.status;
-  if (e.stage === 'RecordIdentification') { const ri = safeParseJson(e.recordIdentification); if (!ri) return 'info'; const st = ri.RecordIdentificationStatus || ''; return (st.includes('Identified') && !st.includes('NoUnique')) ? 'success' : 'warning'; }
-  if (e.stage === 'CSRAssignment') { const as = safeParseJson(e.assignmentStatus); return as?.IsAgentAssigned === true ? 'success' : 'error'; }
+
+function getStageLabel(stage) {
+  return STAGE_META[stage]?.label || stage;
+}
+
+function getStageStatus(event) {
+  const meta = STAGE_META[event.stage];
+  if (!meta) return 'neutral';
+  if (meta.status !== 'dynamic') return meta.status;
+
+  if (event.stage === 'RecordIdentification') {
+    const ri = safeParseJson(event.recordIdentification);
+    if (!ri) return 'info';
+    const st = ri.RecordIdentificationStatus || '';
+    if (st.includes('Identified') && !st.includes('NoUnique')) return 'success';
+    return 'warning';
+  }
+
+  if (event.stage === 'CSRAssignment') {
+    const as = safeParseJson(event.assignmentStatus);
+    if (as?.IsAgentAssigned === true) return 'success';
+    return 'error';
+  }
+
   return 'info';
 }
-function formatTime(ts) { return new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }); }
-function formatDelta(ms) { return ms < 1000 ? `+${ms}ms` : `+${(ms / 1000).toFixed(1)}s`; }
 
-// ════════════════════════════════════════════════
-// Rendering
-// ════════════════════════════════════════════════
+function safeParseJson(str) {
+  if (!str) return null;
+  try { return JSON.parse(str); } catch { return null; }
+}
+
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 3
+  });
+}
+
+function formatDelta(ms) {
+  return ms < 1000 ? `+${ms}ms` : `+${(ms / 1000).toFixed(1)}s`;
+}
+
 function renderSummary(events) {
   if (!events.length) return '';
-  const first = new Date(events[0].timestamp), last = new Date(events[events.length - 1].timestamp);
-  const totalSec = ((last - first) / 1000).toFixed(1), channel = events[0].channel || 'Unknown';
-  let queue = '—'; const rq = events.find(e => e.stage === 'RouteToQueue'); if (rq) { const r = safeParseJson(rq.result); if (r?.DisplayName) queue = r.DisplayName; }
-  let agent = '—'; const ac = events.find(e => e.stage === 'CSRAccepted'); if (ac?.agentName) agent = ac.agentName;
-  let assignTime = '—'; const cr = events.find(e => e.stage === 'ConversationCreated'), as = events.find(e => e.stage === 'CSRAssignment');
-  if (cr && as) assignTime = `${((new Date(as.timestamp) - new Date(cr.timestamp)) / 1000).toFixed(1)}s`;
-  const ls = events[events.length - 1].stage; let fs = 'In Progress', sc = 'warning';
-  if (['CSRClosedSession','ConversationClosed'].includes(ls)) { fs = 'Completed'; sc = 'success'; } else if (ls === 'CSREndedConversation') { fs = 'Wrap-up'; sc = 'info'; }
-  let method = '—'; if (as?.assignmentMethod) method = as.assignmentMethod;
-  return `<div class="summary-bar">
-    <div class="summary-card"><div class="label">Channel</div><div class="value">${channel}</div></div>
-    <div class="summary-card"><div class="label">Queue</div><div class="value">${queue}</div></div>
-    <div class="summary-card"><div class="label">Agent</div><div class="value">${agent}</div></div>
-    <div class="summary-card"><div class="label">Routing Latency</div><div class="value">${assignTime}</div></div>
-    <div class="summary-card"><div class="label">Total Duration</div><div class="value">${totalSec}s</div></div>
-    <div class="summary-card"><div class="label">Assignment Method</div><div class="value">${method}</div></div>
-    <div class="summary-card"><div class="label">Status</div><div class="value" style="color:var(--${sc})">${fs}</div></div>
-    <div class="summary-card"><div class="label">Steps</div><div class="value">${events.length}</div></div>
-  </div>`;
+
+  const first = new Date(events[0].timestamp);
+  const last = new Date(events[events.length - 1].timestamp);
+  const totalSec = ((last - first) / 1000).toFixed(1);
+  const channel = events[0].channel || 'Unknown';
+
+  let queue = '—';
+  const rq = events.find(e => e.stage === 'RouteToQueue');
+  if (rq) {
+    const res = safeParseJson(rq.result);
+    if (res?.DisplayName) queue = res.DisplayName;
+  }
+
+  let agent = '—';
+  const acc = events.find(e => e.stage === 'CSRAccepted');
+  if (acc?.agentName) agent = acc.agentName;
+
+  let assignTime = '—';
+  const created = events.find(e => e.stage === 'ConversationCreated');
+  const assigned = events.find(e => e.stage === 'CSRAssignment');
+  if (created && assigned) {
+    assignTime = `${((new Date(assigned.timestamp) - new Date(created.timestamp)) / 1000).toFixed(1)}s`;
+  }
+
+  const lastStage = events[events.length - 1].stage;
+  let finalStatus = 'In Progress';
+  let statusClass = 'warning';
+
+  if (['CSRClosedSession', 'ConversationClosed'].includes(lastStage)) {
+    finalStatus = 'Completed';
+    statusClass = 'success';
+  } else if (lastStage === 'CSREndedConversation') {
+    finalStatus = 'Wrap-up';
+    statusClass = 'info';
+  }
+
+  let method = '—';
+  if (assigned?.assignmentMethod) method = assigned.assignmentMethod;
+
+  return `
+    <div class="summary-bar">
+      <div class="summary-card"><div class="label">Channel</div><div class="value">${channel}</div></div>
+      <div class="summary-card"><div class="label">Queue</div><div class="value">${queue}</div></div>
+      <div class="summary-card"><div class="label">Agent</div><div class="value">${agent}</div></div>
+      <div class="summary-card"><div class="label">Routing Latency</div><div class="value">${assignTime}</div></div>
+      <div class="summary-card"><div class="label">Total Duration</div><div class="value">${totalSec}s</div></div>
+      <div class="summary-card"><div class="label">Assignment Method</div><div class="value">${method}</div></div>
+      <div class="summary-card"><div class="label">Status</div><div class="value" style="color: var(--${statusClass})">${finalStatus}</div></div>
+      <div class="summary-card"><div class="label">Steps</div><div class="value">${events.length}</div></div>
+    </div>`;
 }
 
 function renderTimelineItem(event, index, events) {
-  const status = getStageStatus(event), label = getStageLabel(event.stage), time = formatTime(event.timestamp);
-  let delta = ''; if (index > 0) delta = formatDelta(new Date(event.timestamp) - new Date(events[index - 1].timestamp));
+  const status = getStageStatus(event);
+  const label = getStageLabel(event.stage);
+  const time = formatTime(event.timestamp);
+
+  let delta = '';
+  if (index > 0) {
+    delta = formatDelta(new Date(event.timestamp) - new Date(events[index - 1].timestamp));
+  }
+
   let badge = '';
-  if (event.stage === 'RecordIdentification') { const ri = safeParseJson(event.recordIdentification); if (ri) { const st = ri.RecordIdentificationStatus || ''; if (st === 'RI_ConfigMissing') badge = '<span class="tl-stage-badge badge-warning">Config Missing</span>'; else if (st.includes('NoUnique')) badge = '<span class="tl-stage-badge badge-warning">No Unique Match</span>'; else if (st.includes('Identified')) badge = '<span class="tl-stage-badge badge-success">Identified</span>'; } }
-  else if (event.stage === 'CSRAssignment') { const a = safeParseJson(event.assignmentStatus); badge = a?.IsAgentAssigned ? '<span class="tl-stage-badge badge-success">Assigned</span>' : '<span class="tl-stage-badge badge-error">Failed</span>'; if (event.assignmentMethod) badge += ` <span class="tl-stage-badge badge-info">${event.assignmentMethod}</span>`; }
-  else if (event.stage === 'RouteToQueue') { const r = safeParseJson(event.result); if (r?.DisplayName) badge = `<span class="tl-stage-badge badge-success">${r.DisplayName}</span>`; }
-  else if (event.newState) badge = `<span class="tl-stage-badge badge-info">${event.previousState} → ${event.newState}</span>`;
+
+  if (event.stage === 'RecordIdentification') {
+    const ri = safeParseJson(event.recordIdentification);
+    if (ri) {
+      const st = ri.RecordIdentificationStatus || '';
+      if (st === 'RI_ConfigMissing') {
+        badge = `<span class="tl-stage-badge badge-warning">Config Missing</span>`;
+      } else if (st.includes('NoUnique')) {
+        badge = `<span class="tl-stage-badge badge-warning">No Unique Match</span>`;
+      } else if (st.includes('Identified')) {
+        badge = `<span class="tl-stage-badge badge-success">Identified</span>`;
+      }
+    }
+  } else if (event.stage === 'CSRAssignment') {
+    const as = safeParseJson(event.assignmentStatus);
+    badge = as?.IsAgentAssigned
+      ? `<span class="tl-stage-badge badge-success">Assigned</span>`
+      : `<span class="tl-stage-badge badge-error">Failed</span>`;
+    if (event.assignmentMethod) {
+      badge += ` <span class="tl-stage-badge badge-info">${event.assignmentMethod}</span>`;
+    }
+  } else if (event.stage === 'RouteToQueue') {
+    const res = safeParseJson(event.result);
+    if (res?.DisplayName) {
+      badge = `<span class="tl-stage-badge badge-success">${res.DisplayName}</span>`;
+    }
+  } else if (event.newState) {
+    badge = `<span class="tl-stage-badge badge-info">${event.previousState} → ${event.newState}</span>`;
+  }
 
   let bodyHtml = '';
-  if (event.description) bodyHtml += `<div class="tl-desc">${event.description}</div>`;
-  if (event.recordIdentification) { const ri = safeParseJson(event.recordIdentification); if (ri) { bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Record Identification</div><div class="tl-kv-grid"><span class="k">Status</span><span class="v ${ri.RecordIdentificationStatus?.includes('NoUnique') || ri.RecordIdentificationStatus === 'RI_ConfigMissing' ? 'warning' : 'success'}">${ri.RecordIdentificationStatus}</span><span class="k">Message</span><span class="v">${ri.Message || '—'}</span></div></div>`; const output = safeParseJson(ri.FetchXmlOutput); if (output) { ['contacts','accounts','incidents'].forEach(entity => { const records = output[entity]; if (records?.length) { bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">${entity} found (${records.length})</div><table class="ri-table"><tr>`; const keys = Object.keys(records[0]); keys.forEach(k => { bodyHtml += `<th>${k}</th>`; }); bodyHtml += '</tr>'; records.forEach(r => { bodyHtml += '<tr>'; keys.forEach(k => { bodyHtml += `<td>${r[k]}</td>`; }); bodyHtml += '</tr>'; }); bodyHtml += '</table></div>'; } }); } } }
-  if (event.additionalInfo) { const ai = safeParseJson(event.additionalInfo); if (ai) bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Details</div><div class="tl-json">${JSON.stringify(ai, null, 2)}</div></div>`; }
-  if (event.assignmentStatus) { const a = safeParseJson(event.assignmentStatus); if (a?.AgentDetails) { const ag = a.AgentDetails; bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Agent Details</div><div class="tl-kv-grid"><span class="k">Agent ID</span><span class="v">${ag.AgentId}</span><span class="k">Presence</span><span class="v ${ag.BasePresence === 'AVAILABLE' ? 'success' : 'warning'}">${ag.BasePresence}</span><span class="k">Capacity</span><span class="v">${ag.AvailableCapacityUnits} units</span><span class="k">Active Sessions</span><span class="v">${ag.ActiveSessionCount}</span><span class="k">Skills</span><span class="v">${ag.Skills?.length ? ag.Skills.join(', ') : 'None'}</span></div></div>`; } }
-  if (event.workItemDetails) { const wi = safeParseJson(event.workItemDetails); if (wi) bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Work Item</div><div class="tl-kv-grid"><span class="k">Queue</span><span class="v highlight">${wi.QueueId}</span><span class="k">Required Capacity</span><span class="v">${wi.RequiredCapacityUnits} units</span><span class="k">Allowed Presences</span><span class="v">${wi.AllowedPresences?.join(', ') || '—'}</span><span class="k">Reservation</span><span class="v">${wi.ReservationType}</span><span class="k">Priority</span><span class="v">${wi.PriorityScore}</span></div></div>`; }
-  if (event.rulesExecuted) { const re = safeParseJson(event.rulesExecuted); if (re) bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Rules Executed</div><div class="tl-json">${JSON.stringify(re, null, 2)}</div></div>`; }
-  if (event.result && event.stage === 'RouteToQueue') { const r = safeParseJson(event.result); if (r) bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Selected Queue</div><div class="tl-kv-grid"><span class="k">Queue</span><span class="v highlight">${r.DisplayName}</span><span class="k">Queue ID</span><span class="v">${r.Id}</span></div></div>`; }
+
+  if (event.description) {
+    bodyHtml += `<div class="tl-desc">${event.description}</div>`;
+  }
+
+  if (event.recordIdentification) {
+    const ri = safeParseJson(event.recordIdentification);
+    if (ri) {
+      bodyHtml += `
+        <div class="tl-detail-group">
+          <div class="tl-detail-label">Record Identification</div>
+          <div class="tl-kv-grid">
+            <span class="k">Status</span>
+            <span class="v ${ri.RecordIdentificationStatus?.includes('NoUnique') || ri.RecordIdentificationStatus === 'RI_ConfigMissing' ? 'warning' : 'success'}">${ri.RecordIdentificationStatus}</span>
+            <span class="k">Message</span>
+            <span class="v">${ri.Message || '—'}</span>
+          </div>
+        </div>`;
+
+      const output = safeParseJson(ri.FetchXmlOutput);
+      if (output) {
+        ['contacts', 'accounts', 'incidents'].forEach(entity => {
+          const records = output[entity];
+          if (records?.length) {
+            bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">${entity} found (${records.length})</div><table class="ri-table"><tr>`;
+            const keys = Object.keys(records[0]);
+            keys.forEach(k => { bodyHtml += `<th>${k}</th>`; });
+            bodyHtml += '</tr>';
+            records.forEach(r => {
+              bodyHtml += '<tr>';
+              keys.forEach(k => { bodyHtml += `<td>${r[k]}</td>`; });
+              bodyHtml += '</tr>';
+            });
+            bodyHtml += '</table></div>';
+          }
+        });
+      }
+    }
+  }
+
+  if (event.additionalInfo) {
+    const ai = safeParseJson(event.additionalInfo);
+    if (ai) {
+      bodyHtml += `
+        <div class="tl-detail-group">
+          <div class="tl-detail-label">Details</div>
+          <div class="tl-json">${JSON.stringify(ai, null, 2)}</div>
+        </div>`;
+    }
+  }
+
+  if (event.assignmentStatus) {
+    const as = safeParseJson(event.assignmentStatus);
+    if (as?.AgentDetails) {
+      const ag = as.AgentDetails;
+      bodyHtml += `
+        <div class="tl-detail-group">
+          <div class="tl-detail-label">Agent Details</div>
+          <div class="tl-kv-grid">
+            <span class="k">Agent ID</span><span class="v">${ag.AgentId}</span>
+            <span class="k">Presence</span><span class="v ${ag.BasePresence === 'AVAILABLE' ? 'success' : 'warning'}">${ag.BasePresence}</span>
+            <span class="k">Capacity</span><span class="v">${ag.AvailableCapacityUnits} units</span>
+            <span class="k">Active Sessions</span><span class="v">${ag.ActiveSessionCount}</span>
+            <span class="k">Skills</span><span class="v">${ag.Skills?.length ? ag.Skills.join(', ') : 'None'}</span>
+          </div>
+        </div>`;
+    }
+  }
+
+  if (event.workItemDetails) {
+    const wi = safeParseJson(event.workItemDetails);
+    if (wi) {
+      bodyHtml += `
+        <div class="tl-detail-group">
+          <div class="tl-detail-label">Work Item</div>
+          <div class="tl-kv-grid">
+            <span class="k">Queue</span><span class="v highlight">${wi.QueueId}</span>
+            <span class="k">Required Capacity</span><span class="v">${wi.RequiredCapacityUnits} units</span>
+            <span class="k">Allowed Presences</span><span class="v">${wi.AllowedPresences?.join(', ') || '—'}</span>
+            <span class="k">Reservation</span><span class="v">${wi.ReservationType}</span>
+            <span class="k">Priority</span><span class="v">${wi.PriorityScore}</span>
+          </div>
+        </div>`;
+    }
+  }
+
+  if (event.rulesExecuted) {
+    const re = safeParseJson(event.rulesExecuted);
+    if (re) {
+      bodyHtml += `
+        <div class="tl-detail-group">
+          <div class="tl-detail-label">Rules Executed</div>
+          <div class="tl-json">${JSON.stringify(re, null, 2)}</div>
+        </div>`;
+    }
+  }
+
+  if (event.result && event.stage === 'RouteToQueue') {
+    const res = safeParseJson(event.result);
+    if (res) {
+      bodyHtml += `
+        <div class="tl-detail-group">
+          <div class="tl-detail-label">Selected Queue</div>
+          <div class="tl-kv-grid">
+            <span class="k">Queue</span><span class="v highlight">${res.DisplayName}</span>
+            <span class="k">Queue ID</span><span class="v">${res.Id}</span>
+          </div>
+        </div>`;
+    }
+  }
+
   const hasBody = bodyHtml.length > 0;
-  return `<div class="tl-item${hasBody ? '' : ' no-expand'}" style="animation-delay:${index * 0.06}s" ${hasBody ? 'onclick="this.classList.toggle(\'open\')"' : ''}><div class="tl-dot ${status}">●</div><div class="tl-card"><div class="tl-header"><div class="tl-header-left"><span class="tl-stage">${label}</span>${badge}</div><span class="tl-time">${time}</span>${delta ? `<span class="tl-delta">${delta}</span>` : ''}${hasBody ? '<span class="tl-chevron">▶</span>' : ''}</div>${hasBody ? `<div class="tl-body">${bodyHtml}</div>` : ''}</div></div>`;
+
+  return `
+    <div class="tl-item${hasBody ? '' : ' no-expand'}" style="animation-delay: ${index * 0.06}s" ${hasBody ? 'onclick="this.classList.toggle(\'open\')"' : ''}>
+      <div class="tl-dot ${status}">●</div>
+      <div class="tl-card">
+        <div class="tl-header">
+          <div class="tl-header-left">
+            <span class="tl-stage">${label}</span>${badge}
+          </div>
+          <span class="tl-time">${time}</span>
+          ${delta ? `<span class="tl-delta">${delta}</span>` : ''}
+          ${hasBody ? '<span class="tl-chevron">▶</span>' : ''}
+        </div>
+        ${hasBody ? `<div class="tl-body">${bodyHtml}</div>` : ''}
+      </div>
+    </div>`;
 }
 
-function renderTimeline(events) { return `<div class="timeline">${events.map((e, i) => renderTimelineItem(e, i, events)).join('')}</div>`; }
-function render(events) { document.getElementById('mainContent').innerHTML = renderSummary(events) + renderTimeline(events); }
+function renderTimeline(events) {
+  return `<div class="timeline">${events.map((e, i) => renderTimelineItem(e, i, events)).join('')}</div>`;
+}
 
-// ════════════════════════════════════════════════
-// Xrm + Custom API + Poll
-// ════════════════════════════════════════════════
-function getXrm() { return (typeof Xrm !== 'undefined') ? Xrm : (window.parent?.Xrm || null); }
+function render(events) {
+  document.getElementById('mainContent').innerHTML = renderSummary(events) + renderTimeline(events);
+}
+
+function getXrm() {
+  return (typeof Xrm !== 'undefined') ? Xrm : (window.parent?.Xrm ? window.parent.Xrm : null);
+}
 
 async function triggerCustomApi(guid) {
   const xrm = getXrm();
-  await xrm.WebApi.online.execute({
+  const req = {
     ConversationId: guid,
-    getMetadata: () => ({ boundParameter: null, operationName: CUSTOM_API_NAME, operationType: 0, parameterTypes: { ConversationId: { typeName: "Edm.String", structuralProperty: 1 } } })
-  });
+    getMetadata: function () {
+      return {
+        boundParameter: null,
+        operationName: CUSTOM_API_NAME,
+        operationType: 0,
+        parameterTypes: {
+          ConversationId: { typeName: "Edm.String", structuralProperty: 1 }
+        }
+      };
+    }
+  };
+  await xrm.WebApi.online.execute(req);
 }
 
 async function pollForResult(guid) {
   const xrm = getXrm();
   const filter = `?$filter=alex_conversationid eq '${guid}'&$select=alex_resultjson,createdon&$orderby=createdon desc&$top=1`;
+
   for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
     await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
     const result = await xrm.WebApi.retrieveMultipleRecords(TABLE_NAME, filter);
     if (result.entities.length > 0) {
       const json = result.entities[0].alex_resultjson;
-      if (json) { try { const p = JSON.parse(json); return Array.isArray(p) ? p : (p.value || []); } catch { return []; } }
+      if (json) {
+        try {
+          const parsed = JSON.parse(json);
+          return Array.isArray(parsed) ? parsed : (parsed.value || []);
+        } catch {
+          return [];
+        }
+      }
     }
   }
+
   return null;
 }
 
 async function doSearch() {
   const guid = document.getElementById('guidInput').value.trim().toLowerCase();
   if (!guid) return;
-  const main = document.getElementById('mainContent'), btn = document.getElementById('btnSearch');
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(guid)) { main.innerHTML = '<div class="error-state">Invalid GUID format</div>'; return; }
+
+  const main = document.getElementById('mainContent');
+  const btn = document.getElementById('btnSearch');
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(guid)) {
+    main.innerHTML = '<div class="error-state">Invalid GUID format</div>';
+    return;
+  }
+
   main.innerHTML = '<div class="loading-state"><div class="spinner"></div>Triggering diagnostics flow...</div>';
   btn.disabled = true;
+
   try {
-    await triggerCustomApi(guid);
-    main.innerHTML = '<div class="loading-state"><div class="spinner"></div>Waiting for routing data...</div>';
-    const events = await pollForResult(guid);
-    if (events === null) { main.innerHTML = `<div class="error-state">Timeout: Flow did not return results within ${(POLL_INTERVAL_MS * POLL_MAX_ATTEMPTS / 1000)}s.<br>Check the flow run history for errors.</div>`; return; }
-    if (!events.length) main.innerHTML = `<div class="empty-state"><div class="icon">∅</div><h2>No routing events found</h2><p>No telemetry was found for conversation ${guid}</p></div>`;
-    else render(events);
-  } catch (err) { main.innerHTML = `<div class="error-state">Error: ${err.message}</div>`; } finally { btn.disabled = false; }
+    let events;
+
+    if (DEMO_MODE) {
+      await new Promise(r => setTimeout(r, 600));
+      events = SAMPLE_DATA[guid] || [];
+    } else {
+      await triggerCustomApi(guid);
+      main.innerHTML = '<div class="loading-state"><div class="spinner"></div>Waiting for routing data...</div>';
+      events = await pollForResult(guid);
+
+      if (events === null) {
+        main.innerHTML = `<div class="error-state">Timeout: Flow did not return results within ${(POLL_INTERVAL_MS * POLL_MAX_ATTEMPTS / 1000)}s.<br>Check the flow run history for errors.</div>`;
+        return;
+      }
+    }
+
+    if (!events.length) {
+      main.innerHTML = `<div class="empty-state"><div class="icon">∅</div><h2>No routing events found</h2><p>No telemetry was found for conversation ${guid}</p></div>`;
+    } else {
+      render(events);
+    }
+  } catch (err) {
+    main.innerHTML = `<div class="error-state">Error: ${err.message}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
-document.getElementById('guidInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-(function autoLoad() { try { const xrm = getXrm(); if (xrm?.Page?.data?.entity) { const id = xrm.Page.data.entity.getId().replace(/[{}]/g, '').toLowerCase(); if (id) { document.getElementById('guidInput').value = id; doSearch(); } } } catch (_) {} })();
+document.getElementById('guidInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
 
-// ════════════════════════════════════════════════
+(function autoLoad() {
+  try {
+    const xrm = getXrm();
+    if (xrm?.Page?.data?.entity) {
+      const id = xrm.Page.data.entity.getId().replace(/[{}]/g, '').toLowerCase();
+      if (id) {
+        document.getElementById('guidInput').value = id;
+        doSearch();
+      }
+    }
+  } catch (_) {}
+})();
+
 // Copilot Panel UI Controls
-// ════════════════════════════════════════════════
 let copilotOpen = false;
 let copilotInitialized = false;
 
 function toggleCopilot() {
-  const panel = document.getElementById('copilotPanel'), fab = document.getElementById('copilotFab');
-  if (copilotOpen) { panel.classList.remove('open'); fab.classList.remove('hidden'); copilotOpen = false; }
-  else { panel.classList.add('open'); fab.classList.add('hidden'); copilotOpen = true; if (!copilotInitialized && window.initCopilotModule) window.initCopilotModule(); }
-}
-function closeCopilot() { document.getElementById('copilotPanel').classList.remove('open'); document.getElementById('copilotFab').classList.remove('hidden'); copilotOpen = false; }
-function restartCopilot() { copilotInitialized = false; document.getElementById('copilotWebChat').innerHTML = ''; if (window.initCopilotModule) window.initCopilotModule(); }
-</script>
+  const panel = document.getElementById('copilotPanel');
+  const fab = document.getElementById('copilotFab');
 
-<!-- Copilot Studio SSO Module (ES Module) -->
-<script type="module" src="js/copilotInit.js"></script>
+  if (copilotOpen) {
+    closeCopilot();
+  } else {
+    panel.classList.add('open');
+    fab.classList.add('hidden');
+    copilotOpen = true;
+
+    if (!copilotInitialized && window.initCopilotModule) {
+      window.initCopilotModule();
+    }
+  }
+}
+
+function closeCopilot() {
+  document.getElementById('copilotPanel').classList.remove('open');
+  document.getElementById('copilotFab').classList.remove('hidden');
+  copilotOpen = false;
+
+  restartCopilot();
+}
+
+function restartCopilot() {
+  copilotInitialized = false;
+
+  const panel = document.getElementById('copilotPanel');
+  const oldContainer = document.getElementById('copilotWebChat');
+
+  if (oldContainer) {
+    oldContainer.remove();
+  }
+
+  const newContainer = document.createElement('div');
+  newContainer.id = 'copilotWebChat';
+  newContainer.className = 'copilot-webchat';
+
+  panel.appendChild(newContainer);
+
+  if (window.initCopilotModule) {
+    window.initCopilotModule();
+  }
+}
+    </script>
+
+    <script type="module">
+import { CopilotStudioClient, CopilotStudioWebChat, ConnectionSettings } from '@microsoft/agents-copilotstudio-client';
+
+window.initCopilotModule = async function () {
+  const container = document.getElementById('copilotWebChat');
+  if (!container) return;
+
+  container.innerHTML = '<div class="copilot-loading"><div class="spinner"></div>Connecting to Routing Insight (SSO)...</div>';
+
+  try {
+    const xrm = (typeof Xrm !== 'undefined') ? Xrm : (window.parent?.Xrm ? window.parent.Xrm : null);
+    if (!xrm) throw new Error("Xrm context not found. Cannot acquire token.");
+
+    const envVarQuery = "?$filter=schemaname eq 'alex_AppClientId'&$select=schemaname&$expand=environmentvariabledefinition_environmentvariablevalue($select=value)";
+    const result = await xrm.WebApi.retrieveMultipleRecords("environmentvariabledefinition", envVarQuery);
+
+    let appClientId = null;
+    if (result.entities.length > 0) {
+      const vals = result.entities[0].environmentvariabledefinition_environmentvariablevalue;
+      if (vals?.length > 0) appClientId = vals[0].value;
+    }
+
+    if (!appClientId) {
+      container.innerHTML = '<div class="copilot-error">App Client ID not configured.<br>Set <strong>alex_AppClientId</strong> in your solution.</div>';
+      return;
+    }
+
+    const SCHEMA_NAME = "alex_routing_insight";
+
+    const tenantId = xrm.Utility.getGlobalContext().organizationSettings.organizationTenant;
+    const environmentId = xrm.Utility.getGlobalContext().organizationSettings.bapEnvironmentId;
+
+    const userId = xrm.Utility.getGlobalContext().userSettings.userId.replace(/[{}]/g, "");
+    const u = await xrm.WebApi.retrieveRecord("systemuser", userId, "?$select=domainname");
+    const upn = u?.domainname || null;
+
+    const msalInstance = new window.msal.PublicClientApplication({
+      auth: {
+        clientId: appClientId,
+        authority: `https://login.microsoftonline.com/${tenantId}`,
+        redirectUri: window.location.origin,
+        navigateToLoginRequestUrl: false
+      },
+      cache: {
+        cacheLocation: "memory",
+        storeAuthStateInCookie: true
+      }
+    });
+
+    await msalInstance.initialize();
+
+    const request = {
+      scopes: ["https://api.powerplatform.com/.default"],
+      loginHint: upn,
+      redirectUri: window.location.origin
+    };
+
+    let token = null;
+
+    try {
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length) {
+        const res = await msalInstance.acquireTokenSilent({ ...request, account: accounts[0] });
+        if (res?.accessToken) token = res.accessToken;
+      }
+    } catch (e) {
+      console.warn("acquireTokenSilent failed", e);
+    }
+
+    if (!token) {
+      try {
+        const res = await msalInstance.ssoSilent(request);
+        if (res?.accessToken) token = res.accessToken;
+      } catch (e) {
+        console.warn("ssoSilent failed", e);
+      }
+    }
+
+    if (!token) {
+      const res = await msalInstance.loginPopup(request);
+      token = res.accessToken;
+    }
+
+    if (!token) throw new Error("Failed to acquire SSO token.");
+
+    const settings = new ConnectionSettings({
+      tenantId,
+      environmentId,
+      agentIdentifier: SCHEMA_NAME,
+      appClientId
+    });
+
+    const client = new CopilotStudioClient(settings, token);
+
+    await client.startConversationAsync(true);
+
+    const directLine = CopilotStudioWebChat.createConnection(client, { typingIndicator: true });
+
+    container.innerHTML = '';
+    container.style.height = '100%';
+
+    const isLight = document.documentElement.classList.contains('light');
+
+    window.WebChat.renderWebChat({
+      directLine: directLine,
+      locale: 'en-US',
+      styleOptions: {
+        accent: '#4a6cf7',
+        backgroundColor: isLight ? '#ffffff' : '#1a1d27',
+        bubbleBackground: isLight ? '#f0f1f4' : '#222633',
+        bubbleBorderColor: isLight ? '#e0e2e8' : '#2a2e3d',
+        bubbleBorderRadius: 12,
+        bubbleFromUserBackground: '#4a6cf7',
+        bubbleFromUserBorderColor: '#4a6cf7',
+        bubbleFromUserBorderRadius: 12,
+        bubbleFromUserTextColor: '#ffffff',
+        bubbleTextColor: isLight ? '#1a1d27' : '#e2e4ea',
+        sendBoxBackground: isLight ? '#f4f5f7' : '#0f1117',
+        sendBoxTextColor: isLight ? '#1a1d27' : '#e2e4ea',
+        sendBoxBorderTop: `1px solid ${isLight ? '#d8dbe3' : '#2a2e3d'}`,
+        hideUploadButton: true,
+        botAvatarInitials: 'RI',
+        botAvatarBackgroundColor: '#4a6cf7',
+        userAvatarInitials: 'Me',
+        rootHeight: '100%',
+        rootWidth: '100%'
+      }
+    }, container);
+
+    console.log('Copilot Studio WebChat with SSO rendered successfully');
+    copilotInitialized = true;
+  } catch (err) {
+    container.innerHTML = `<div class="copilot-error">Failed to connect:<br>${err.message}</div>`;
+  }
+};
+    </script>
 
 </body>
 </html>
-<!-- test git change -->
