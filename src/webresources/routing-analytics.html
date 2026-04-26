@@ -739,6 +739,11 @@
                         <path d="M3 3v5h5"></path>
                     </svg>
                 </button>
+                <button onclick="minimizeCopilot()" title="Minimize">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
                 <button onclick="closeCopilot()" title="Close">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -1201,10 +1206,35 @@ function closeCopilot() {
   document.getElementById('copilotFab').classList.remove('hidden');
   copilotOpen = false;
 
-  restartCopilot();
+  // Tear down the DOM so the next open starts a fresh conversation,
+  // but do NOT call initCopilotModule() here. The panel is now hidden
+  // and starting a new MSAL flow while invisible causes the
+  // interaction_in_progress error when the user reopens the panel.
+  copilotInitialized = false;
+  const panel = document.getElementById('copilotPanel');
+  const oldContainer = document.getElementById('copilotWebChat');
+  if (oldContainer) oldContainer.remove();
+  const newContainer = document.createElement('div');
+  newContainer.id = 'copilotWebChat';
+  newContainer.className = 'copilot-webchat';
+  panel.appendChild(newContainer);
+}
+
+function minimizeCopilot() {
+  // Hide the panel and restore the FAB without resetting the conversation.
+  // copilotInitialized stays true so the next open resumes the existing chat.
+  document.getElementById('copilotPanel').classList.remove('open');
+  document.getElementById('copilotFab').classList.remove('hidden');
+  copilotOpen = false;
 }
 
 function restartCopilot() {
+  // Clear any stale MSAL interaction lock left by a previous in-flight auth
+  // flow before creating a new PublicClientApplication instance.
+  Object.keys(sessionStorage)
+    .filter(k => k.includes('interaction.status'))
+    .forEach(k => sessionStorage.removeItem(k));
+
   copilotInitialized = false;
 
   const panel = document.getElementById('copilotPanel');
