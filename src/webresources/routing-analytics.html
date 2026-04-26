@@ -163,6 +163,69 @@
             border-color: var(--accent);
         }
 
+        .btn-info {
+            position: relative;
+            padding: 0;
+            width: 36px;
+            height: 36px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 700;
+            font-family: Georgia, serif;
+            font-style: italic;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .btn-info:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .version-popup {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-4px);
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            z-index: 2000;
+        }
+
+        .version-popup.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+
+        .version-popup .vp-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-dim);
+            margin-bottom: 2px;
+        }
+
+        .version-popup .vp-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
         /* Main Content */
         .main {
             max-width: 960px;
@@ -704,6 +767,13 @@
             </div>
             <button class="btn-search" id="btnSearch" onclick="doSearch()">Analyze</button>
             <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
+            <div style="position:relative;flex-shrink:0;">
+                <button class="btn-info" id="btnInfo" onclick="toggleVersionPopup(event)" title="About"><i>i</i></button>
+                <div class="version-popup" id="versionPopup">
+                    <div class="vp-label">Version</div>
+                    <div class="vp-value">1.0.2</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -761,6 +831,15 @@ const TABLE_NAME = 'alex_routing_diagnostics_result';
 const CUSTOM_API_NAME = 'alex_GetRoutingDiagnostics';
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 30;
+
+function toggleVersionPopup(e) {
+  e.stopPropagation();
+  document.getElementById('versionPopup').classList.toggle('visible');
+}
+
+document.addEventListener('click', function () {
+  document.getElementById('versionPopup')?.classList.remove('visible');
+});
 
 function toggleTheme() {
   const html = document.documentElement;
