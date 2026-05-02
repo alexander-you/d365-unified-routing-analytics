@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Routing + MCS Timeline — Mockup</title>
+    <style>
+        :root {
+            --bg: #f4f5f7;
+            --surface: #ffffff;
+            --surface-hover: #f0f1f4;
+            --border: #d8dbe3;
+            --text: #1a1d27;
+            --text-muted: #5c6078;
+            --text-dim: #8b8fa3;
+            --accent: #4a6cf7;
+            --accent-dim: rgba(74,108,247,0.10);
+            --success: #16a34a;
+            --success-dim: rgba(22,163,74,0.10);
+            --warning: #ca8a04;
+            --warning-dim: rgba(202,138,4,0.10);
+            --error: #dc2626;
+            --error-dim: rgba(220,38,38,0.10);
+            --info: #2563eb;
+            --info-dim: rgba(37,99,235,0.10);
+            --purple: #7c3aed;
+            --purple-dim: rgba(124,58,237,0.10);
+            --radius: 8px;
+            --font: 'Segoe UI', -apple-system, sans-serif;
+            --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+
+        .header .logo { font-size: 14px; font-weight: 700; letter-spacing: 0.5px; color: var(--accent); white-space: nowrap; }
+
+        .header .conv-id {
+            font-family: var(--mono);
+            font-size: 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 6px 12px;
+            color: var(--text-muted);
+            flex: 1;
+        }
+
+        .mockup-badge {
+            padding: 4px 10px;
+            background: var(--warning-dim);
+            color: var(--warning);
+            border: 1px solid var(--warning);
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        /* ── Layout ── */
+        .main { max-width: 1000px; margin: 0 auto; padding: 24px; }
+
+        /* ── Summary Cards ── */
+        .summary-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .summary-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .summary-card .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .summary-card .value { font-size: 17px; font-weight: 700; }
+        .summary-card .sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+        /* ── Source legend ── */
+        .legend {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .legend-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.oc { background: var(--info); }
+        .legend-dot.mcs { background: var(--purple); }
+
+        /* ── Section divider ── */
+        .section-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            font-weight: 700;
+            margin: 20px 0 8px 32px;
+        }
+
+        /* ── Timeline ── */
+        .timeline { position: relative; padding-left: 32px; }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 11px; top: 8px; bottom: 8px;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .tl-item {
+            position: relative;
+            margin-bottom: 4px;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeUp 0.3s ease forwards;
+        }
+
+        @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+        .tl-dot {
+            position: absolute;
+            left: -32px; top: 14px;
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 9px;
+            font-weight: 700;
+            z-index: 2;
+        }
+
+        .tl-dot.oc-dot   { background: var(--info-dim);   color: var(--info);    border: 2px solid var(--info); }
+        .tl-dot.mcs-dot  { background: var(--purple-dim); color: var(--purple);  border: 2px solid var(--purple); }
+        .tl-dot.success  { background: var(--success-dim); color: var(--success); border: 2px solid var(--success); }
+        .tl-dot.warning  { background: var(--warning-dim); color: var(--warning); border: 2px solid var(--warning); }
+        .tl-dot.error    { background: var(--error-dim);   color: var(--error);   border: 2px solid var(--error); }
+        .tl-dot.neutral  { background: #f0f1f4;            color: #8b8fa3;        border: 2px solid #d8dbe3; }
+
+        .tl-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: border-color 0.15s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .tl-card:hover { border-color: #a0a8c0; }
+
+        .tl-card.mcs-card { border-left: 3px solid var(--purple); }
+        .tl-card.oc-card  { border-left: 3px solid var(--info); }
+
+        .tl-header {
+            padding: 11px 16px;
+            display: flex; align-items: center; justify-content: space-between;
+            cursor: pointer; user-select: none;
+        }
+
+        .tl-header-left {
+            display: flex; align-items: center; gap: 10px;
+            flex: 1; min-width: 0;
+        }
+
+        .source-pill {
+            font-size: 9px; font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .source-pill.oc  { background: var(--info-dim);   color: var(--info); }
+        .source-pill.mcs { background: var(--purple-dim); color: var(--purple); }
+
+        .tl-stage { font-size: 13px; font-weight: 600; }
+
+        .tl-badge {
+            font-size: 10px; font-weight: 600;
+            padding: 2px 8px; border-radius: 4px;
+            text-transform: uppercase; letter-spacing: 0.4px;
+            white-space: nowrap;
+        }
+
+        .badge-success { background: var(--success-dim); color: var(--success); }
+        .badge-warning { background: var(--warning-dim); color: var(--warning); }
+        .badge-error   { background: var(--error-dim);   color: var(--error); }
+        .badge-info    { background: var(--info-dim);    color: var(--info); }
+        .badge-purple  { background: var(--purple-dim);  color: var(--purple); }
+        .badge-neutral { background: #f0f1f4;            color: #5c6078; }
+
+        .tl-time {
+            font-size: 11px; font-family: var(--mono);
+            color: var(--text-dim); white-space: nowrap; margin-left: 8px;
+        }
+
+        .tl-delta { font-size: 10px; color: var(--text-muted); margin-left: 6px; white-space: nowrap; }
+
+        .tl-chevron { font-size: 12px; color: var(--text-dim); transition: transform 0.2s; margin-left: 8px; }
+        .tl-item.open .tl-chevron { transform: rotate(90deg); }
+
+        .tl-body {
+            display: none;
+            padding: 0 16px 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .tl-item.open .tl-body { display: block; }
+
+        .tl-desc { font-size: 12px; color: var(--text-muted); padding: 10px 0 4px; line-height: 1.6; }
+
+        .tl-detail-group { margin-top: 10px; }
+
+        .tl-detail-label {
+            font-size: 10px; text-transform: uppercase;
+            letter-spacing: 0.8px; color: var(--text-dim);
+            margin-bottom: 5px; font-weight: 600;
+        }
+
+        .tl-kv-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 16px;
+            font-size: 12px;
+        }
+
+        .tl-kv-grid .k { color: var(--text-dim); white-space: nowrap; }
+        .tl-kv-grid .v { color: var(--text); font-family: var(--mono); font-size: 11px; word-break: break-all; }
+        .tl-kv-grid .v.accent  { color: var(--accent); font-weight: 600; }
+        .tl-kv-grid .v.success { color: var(--success); }
+        .tl-kv-grid .v.warning { color: var(--warning); }
+        .tl-kv-grid .v.purple  { color: var(--purple); }
+
+        .tl-json {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-family: var(--mono); font-size: 11px;
+            color: var(--text-muted); line-height: 1.6;
+            overflow-x: auto; white-space: pre-wrap;
+            word-break: break-all; max-height: 260px; overflow-y: auto;
+        }
+
+        .chat-bubble {
+            display: inline-block;
+            max-width: 85%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            line-height: 1.5;
+            margin-top: 8px;
+        }
+
+        .chat-bubble.bot {
+            background: var(--purple-dim);
+            border: 1px solid rgba(124,58,237,0.2);
+            color: var(--text);
+            border-radius: 12px 12px 12px 2px;
+        }
+
+        .chat-bubble.customer {
+            background: var(--info-dim);
+            border: 1px solid rgba(37,99,235,0.2);
+            color: var(--text);
+            border-radius: 12px 12px 2px 12px;
+            margin-left: auto;
+            display: block;
+        }
+
+        .chat-from {
+            font-size: 10px;
+            color: var(--text-dim);
+            margin-top: 8px;
+            margin-bottom: 2px;
+        }
+
+        .rules-table {
+            width: 100%; border-collapse: collapse;
+            font-size: 11px; margin-top: 6px;
+        }
+
+        .rules-table th {
+            text-align: left; padding: 5px 8px;
+            background: var(--bg); color: var(--text-dim);
+            font-size: 10px; text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid var(--border);
+        }
+
+        .rules-table td {
+            padding: 5px 8px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted); font-family: var(--mono); font-size: 11px;
+        }
+
+        .pill-applied  { display:inline-block; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600; background:var(--success-dim); color:var(--success); }
+        .pill-processed{ display:inline-block; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600; background:#f0f1f4; color:#5c6078; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="logo">ROUTING ANALYTICS</div>
+    <div class="conv-id">Conversation ID: 5dbcb1cb-cf0c-437b-9b10-be31ff11a9e7</div>
+    <span class="mockup-badge">MOCKUP</span>
+</div>
+
+<div class="main" id="app"></div>
+
+<script>
+// ── Sample data derived verbatim from the actual KQL result ──────────────────
+const EVENTS = [
+  {
+    ts: new Date('2026-05-02T12:03:42.776Z'),
+    source: 'OC', stage: 'ConversationCreated',
+    label: 'Conversation Created',
+    status: 'info',
+    desc: 'Conversation created for Conversation: 5dbcb1cb-cf0c-437b-9b10-be31ff11a9e7',
+    detail: { Channel: 'Chat', WorkStream: 'Chat', BotUserId: '60d66479-d6c6-f011-8544-000d3ab9ed3d' }
+  },
+  {
+    ts: new Date('2026-05-02T12:03:42.832Z'),
+    source: 'MCS', stage: 'OnEventActivity',
+    label: 'OC Context Received by Bot',
+    status: 'mcs',
+    desc: 'Bot received the startConversation event from Omnichannel and began processing context.',
+    detail: { Topic: 'OnEventActivity', Action: 'SetVariable / ConditionGroup', Channel: 'lcw' }
+  },
+  {
+    ts: new Date('2026-05-02T12:03:42.847Z'),
+    source: 'MCS', stage: 'CorrelationLogged',
+    label: 'Correlation Bridge Logged',
+    status: 'mcs',
+    desc: 'Custom telemetry events emitted linking the OC work item GUID to the MCS conversation thread.',
+    detail: {
+      ocConversationId: '5dbcb1cb-cf0c-437b-9b10-be31ff11a9e7',
+      mcsConversationId: 'deflection:19:acsV2_qscxup_...@thread.v2'
+    },
+    isBridge: true
+  },
+  {
+    ts: new Date('2026-05-02T12:03:42.854Z'),
+    source: 'MCS', stage: 'BotGreeting',
+    label: 'Bot Greeted Customer',
+    status: 'mcs',
+    desc: 'Bot sent opening messages to the customer.',
+    messages: [
+      { from: 'Bot', text: 'Hello and welcome to Solaredge Customer Care.' },
+      { from: 'Bot', text: "I'm Andrew, Solaredge Virtual Assistant." },
+      { from: 'Bot', text: "You can speak freely with me, and I'll do my best to assist you. If I'm unable to help, I'll be happy to connect you with a human representative." },
+      { from: 'Bot', text: 'So, how can I assist you today?' }
+    ]
+  },
+  {
+    ts: new Date('2026-05-02T12:03:43.458Z'),
+    source: 'OC', stage: 'ConversationDetails',
+    label: 'Conversation Details',
+    status: 'info',
+    desc: 'Conversation metadata logged.',
+    detail: { WorkStream: 'Chat (52f3ac2b...)', WorkDistributionMode: 'Push', BotUserId: '60d66479...' }
+  },
+  {
+    ts: new Date('2026-05-02T12:03:43.482Z'),
+    source: 'OC', stage: 'CopilotAgentAssignedToConversation',
+    label: 'Bot Assigned to Conversation',
+    status: 'success',
+    desc: 'Copilot agent assigned to conversation. OC routed the incoming conversation to the bot workstream.',
+    detail: { BotAgentId: '60d66479-d6c6-f011-8544-000d3ab9ed3d' }
+  },
+  {
+    ts: new Date('2026-05-02T12:03:43.486Z'),
+    source: 'OC', stage: 'RecordIdentification',
+    label: 'Record Identification (Initial)',
+    status: 'warning',
+    desc: 'No unique contact/account record identified at conversation start — customer not yet authenticated.',
+    detail: { Status: 'RI_NoUniqueRecordsIdentified', Message: 'No unique record identified because an empty record identification rule constructed post processing.' }
+  },
+  {
+    ts: new Date('2026-05-02T12:03:44.411Z'),
+    source: 'OC', stage: 'RouteToQueue',
+    label: 'Initial Route to Queue',
+    status: 'warning',
+    desc: 'No intent rule matched yet — conversation routed to fallback queue pending bot interaction.',
+    detail: { RuleSet: 'Customer Intent Route', HitPolicy: 'Run All', FallbackQueue: 'Queue Priority 1' },
+    rules: [
+      { rule: 'Billing & Payment Inquiries', condition: 'CustomerIntent contains Billing & Payment', status: 'Processed', output: 'Billing & Payment' },
+      { rule: 'Website Configuration & Tech Support', condition: 'CustomerIntent equals Website Config...', status: 'Processed', output: 'Website Configuration' }
+    ]
+  },
+  {
+    ts: new Date('2026-05-02T12:03:46.810Z'),
+    source: 'MCS', stage: 'ContextUpdated',
+    label: 'Full OC Context Delivered to Bot',
+    status: 'mcs',
+    desc: 'OC sent the full setcontext event including engagement context, session, workstream, and customer device info.',
+    detail: {
+      EventName: 'channel/vnd.microsoft.setcontext',
+      msdyn_liveworkitemid: '5dbcb1cb-...',
+      msdyn_sessionid: 'd8609e30-...',
+      msdyn_browser: 'Edge',
+      msdyn_device: 'Desktop',
+      msdyn_os: 'Windows'
+    }
+  },
+  {
+    ts: new Date('2026-05-02T12:03:52.045Z'),
+    source: 'MCS', stage: 'CustomerMessage',
+    label: 'Customer Query Received',
+    status: 'mcs',
+    desc: 'Customer sent first substantive message.',
+    messages: [
+      { from: 'Customer', text: 'How can I monitor my SolarEdge system performance?' }
+    ]
+  },
+  {
+    ts: new Date('2026-05-02T12:03:57.735Z'),
+    source: 'MCS', stage: 'BotResponse',
+    label: 'Bot Responded (Knowledge)',
+    status: 'mcs',
+    desc: 'Bot answered using knowledge base / generative answer. No escalation triggered.',
+    messages: [
+      { from: 'Bot', text: '**How to Monitor Your SolarEdge System Performance**\n\nUse the mySolarEdge mobile app or the SolarEdge Monitoring Platform at solaredge.com to view real-time energy production, consumption, and device status.' }
+    ]
+  },
+  {
+    ts: new Date('2026-05-02T12:04:14.528Z'),
+    source: 'MCS', stage: 'CustomerMessage2',
+    label: 'Customer Billing Issue Raised',
+    status: 'mcs',
+    desc: 'Customer raised a billing concern — bot cannot handle billing and will escalate.',
+    messages: [
+      { from: 'Customer', text: 'Thank you very much, that was extremely helpful. I do have an issue regarding my billing — my latest charge is higher than my previous ones.' }
+    ]
+  },
+  {
+    ts: new Date('2026-05-02T12:04:15.358Z'),
+    source: 'MCS', stage: 'EscalateTopic',
+    label: 'Escalate Topic Triggered',
+    status: 'warning',
+    desc: 'Bot matched the "billing" topic, which immediately triggers the Escalate flow. AI Builder model invoked to classify intent before transfer.',
+    detail: { Topic: 'billing → Escalate', Action: 'TransferConversationV2', AIBuilderAction: 'invokeAIBuilderModelAction' },
+    messages: [
+      { from: 'Bot', text: "Unfortunately, I'm not able to assist with billing and account matters at this time." },
+      { from: 'Bot', text: "However, I'm transferring your chat to a human representative at Customer Service." },
+      { from: 'Bot', text: 'Please hold for a moment while your chat is being transferred.' }
+    ]
+  },
+  {
+    ts: new Date('2026-05-02T12:04:17.544Z'),
+    source: 'OC', stage: 'CopilotAgentEscalationToCSR',
+    label: 'Bot Escalation Received by OC',
+    status: 'info',
+    desc: 'OC acknowledged the bot escalation signal and began the routing cycle for human agent assignment.',
+    detail: { InitiatorBotAgentId: '60d66479-...' }
+  },
+  {
+    ts: new Date('2026-05-02T12:04:18.065Z'),
+    source: 'OC', stage: 'IntentDetermination',
+    label: 'Intent Determination',
+    status: 'info',
+    desc: 'OC evaluated customer intent from the bot conversation context to select the appropriate queue.',
+    detail: {}
+  },
+  {
+    ts: new Date('2026-05-02T12:04:18.776Z'),
+    source: 'OC', stage: 'RecordIdentification2',
+    label: 'Record Identification (Post-Escalation)',
+    status: 'warning',
+    desc: 'Second record identification attempt using email from bot context. No matching contact/account found.',
+    detail: { Email: 'ethan.marlowe@examplemail.net', Status: 'RI_NoUniqueRecordsIdentified', Message: 'No match found in Dataverse.' }
+  },
+  {
+    ts: new Date('2026-05-02T12:04:18.797Z'),
+    source: 'OC', stage: 'RouteToQueue2',
+    label: 'Route to Queue (Intent Match)',
+    status: 'success',
+    desc: 'Intent rule "Billing & Payment Inquiries" matched. Conversation routed to Billing & Payment queue.',
+    detail: { RuleSet: 'Customer Intent Route', MatchedRule: 'Billing & Payment Inquiries', Queue: 'Billing & Payment' },
+    rules: [
+      { rule: 'Billing & Payment Inquiries', condition: 'CustomerIntent contains Billing & Payment', status: 'Applied', output: 'Billing & Payment' },
+      { rule: 'Website Configuration & Tech Support', condition: 'CustomerIntent equals Website Config...', status: 'Processed', output: 'Website Configuration' }
+    ]
+  },
+  {
+    ts: new Date('2026-05-02T12:04:22.506Z'),
+    source: 'OC', stage: 'CSRAssignment',
+    label: 'Agent Assignment',
+    status: 'success',
+    desc: 'Agent Ronen Cohen assigned via Highest Capacity method.',
+    detail: {
+      Agent: 'Ronen Cohen',
+      Method: 'HighestCapacity',
+      Presence: 'AVAILABLE',
+      AvailableCapacity: '70 units',
+      ActiveSessions: 0,
+      Queue: 'Billing & Payment'
+    }
+  },
+  {
+    ts: new Date('2026-05-02T12:04:28.049Z'),
+    source: 'OC', stage: 'CSRAccepted',
+    label: 'Agent Accepted Conversation',
+    status: 'success',
+    desc: 'Agent Ronen Cohen accepted the conversation. State: Active → Active.',
+    detail: { Agent: 'Ronen Cohen', PreviousState: 'Active', NewState: 'Active', Queue: '52b7b117...' }
+  },
+  {
+    ts: new Date('2026-05-02T12:06:43.980Z'),
+    source: 'OC', stage: 'CSREndedConversation',
+    label: 'Agent Ended Conversation',
+    status: 'neutral',
+    desc: 'Agent Ronen Cohen ended the conversation. State: Active → WrapUp.',
+    detail: { Agent: 'Ronen Cohen', PreviousState: 'Active', NewState: 'WrapUp' }
+  },
+  {
+    ts: new Date('2026-05-02T12:06:48.503Z'),
+    source: 'OC', stage: 'CSRClosedSession',
+    label: 'Session Closed',
+    status: 'neutral',
+    desc: 'Agent closed the session. State: WrapUp → Closed.',
+    detail: { Agent: 'Ronen Cohen', PreviousState: 'WrapUp', NewState: 'Closed' }
+  }
+];
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function fmt(ts) {
+  return ts.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+}
+
+function delta(ts, prev) {
+  if (!prev) return '';
+  const ms = ts - prev;
+  return ms < 1000 ? `+${ms}ms` : `+${(ms / 1000).toFixed(1)}s`;
+}
+
+function dotClass(ev) {
+  if (ev.status === 'mcs') return 'mcs-dot';
+  if (ev.isBridge) return 'mcs-dot';
+  return { info: 'oc-dot', success: 'success', warning: 'warning', error: 'error', neutral: 'neutral' }[ev.status] || 'oc-dot';
+}
+
+function dotLabel(ev) {
+  if (ev.source === 'MCS') return 'MCS';
+  return 'OC';
+}
+
+function badge(ev) {
+  if (ev.isBridge)
+    return `<span class="tl-badge badge-purple">Correlation Bridge</span>`;
+  if (ev.stage === 'CSRAccepted')
+    return `<span class="tl-badge badge-success">Accepted</span>`;
+  if (ev.stage === 'CSRAssignment')
+    return `<span class="tl-badge badge-success">Assigned · Highest Capacity</span>`;
+  if (ev.stage === 'CopilotAgentAssignedToConversation')
+    return `<span class="tl-badge badge-info">Bot Assigned</span>`;
+  if (ev.stage === 'CopilotAgentEscalationToCSR')
+    return `<span class="tl-badge badge-info">Escalation</span>`;
+  if (ev.stage === 'EscalateTopic')
+    return `<span class="tl-badge badge-warning">Escalating</span>`;
+  if (ev.stage === 'RouteToQueue2')
+    return `<span class="tl-badge badge-success">Billing &amp; Payment</span>`;
+  if (ev.stage === 'RouteToQueue')
+    return `<span class="tl-badge badge-warning">Fallback Queue</span>`;
+  if (ev.stage === 'RecordIdentification' || ev.stage === 'RecordIdentification2')
+    return `<span class="tl-badge badge-warning">No Match</span>`;
+  if (ev.stage === 'CSREndedConversation')
+    return `<span class="tl-badge badge-neutral">Active → WrapUp</span>`;
+  if (ev.stage === 'CSRClosedSession')
+    return `<span class="tl-badge badge-neutral">WrapUp → Closed</span>`;
+  return '';
+}
+
+function renderDetail(d) {
+  if (!d || !Object.keys(d).length) return '';
+  return `<div class="tl-detail-group">
+    <div class="tl-detail-label">Details</div>
+    <div class="tl-kv-grid">
+      ${Object.entries(d).map(([k, v]) => `<span class="k">${k}</span><span class="v">${v}</span>`).join('')}
+    </div>
+  </div>`;
+}
+
+function renderMessages(msgs) {
+  if (!msgs?.length) return '';
+  return `<div class="tl-detail-group">
+    <div class="tl-detail-label">Messages</div>
+    ${msgs.map(m => `
+      <div class="chat-from">${m.from}</div>
+      <div class="chat-bubble ${m.from === 'Bot' ? 'bot' : 'customer'}">${m.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</div>
+    `).join('')}
+  </div>`;
+}
+
+function renderRules(rules) {
+  if (!rules?.length) return '';
+  return `<div class="tl-detail-group">
+    <div class="tl-detail-label">Routing Rules Evaluated</div>
+    <table class="rules-table">
+      <tr><th>Rule</th><th>Condition</th><th>Status</th><th>Output Queue</th></tr>
+      ${rules.map(r => `<tr>
+        <td>${r.rule}</td>
+        <td>${r.condition}</td>
+        <td><span class="${r.status === 'Applied' ? 'pill-applied' : 'pill-processed'}">${r.status}</span></td>
+        <td>${r.output}</td>
+      </tr>`).join('')}
+    </table>
+  </div>`;
+}
+
+// ── Summary ──────────────────────────────────────────────────────────────────
+function renderSummary() {
+  const first = EVENTS[0].ts;
+  const last = EVENTS[EVENTS.length - 1].ts;
+  const total = ((last - first) / 1000).toFixed(0);
+  const assignment = EVENTS.find(e => e.stage === 'CSRAssignment');
+  const escalation = EVENTS.find(e => e.stage === 'CopilotAgentEscalationToCSR');
+  const routingLatency = assignment && escalation
+    ? `${((assignment.ts - escalation.ts) / 1000).toFixed(1)}s`
+    : '—';
+  const botDuration = escalation
+    ? `${((escalation.ts - first) / 1000).toFixed(0)}s`
+    : '—';
+  const ocCount = EVENTS.filter(e => e.source === 'OC').length;
+  const mcsCount = EVENTS.filter(e => e.source === 'MCS').length;
+
+  return `<div class="summary-bar">
+    <div class="summary-card">
+      <div class="label">Channel</div>
+      <div class="value">Chat (LCW)</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Assigned Agent</div>
+      <div class="value" style="font-size:14px">Ronen Cohen</div>
+      <div class="sub">Highest Capacity</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Final Queue</div>
+      <div class="value" style="font-size:13px">Billing &amp; Payment</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Bot Handled For</div>
+      <div class="value">${botDuration}</div>
+      <div class="sub">before escalation</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Post-Escalation Routing</div>
+      <div class="value">${routingLatency}</div>
+      <div class="sub">to agent assignment</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Total Duration</div>
+      <div class="value">${total}s</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">OC Events</div>
+      <div class="value" style="color:var(--info)">${ocCount}</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">MCS Events</div>
+      <div class="value" style="color:var(--purple)">${mcsCount}</div>
+    </div>
+  </div>`;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const app = document.getElementById('app');
+
+  let html = renderSummary();
+
+  html += `<div class="legend">
+    <div class="legend-item"><div class="legend-dot oc"></div> OC Routing (Unified Routing Engine)</div>
+    <div class="legend-item"><div class="legend-dot mcs"></div> MCS Bot (Copilot Studio)</div>
+  </div>`;
+
+  html += `<div class="timeline">`;
+
+  let prev = null;
+  EVENTS.forEach((ev, i) => {
+    const d = delta(ev.ts, prev);
+    const dc = dotClass(ev);
+
+    const bodyParts = [
+      ev.desc ? `<div class="tl-desc">${ev.desc}</div>` : '',
+      renderDetail(ev.detail),
+      renderMessages(ev.messages),
+      renderRules(ev.rules)
+    ].join('');
+
+    html += `
+    <div class="tl-item" style="animation-delay:${i * 40}ms" onclick="this.classList.toggle('open')">
+      <div class="tl-dot ${dc}">${dotLabel(ev)}</div>
+      <div class="tl-card ${ev.source === 'MCS' ? 'mcs-card' : 'oc-card'}">
+        <div class="tl-header">
+          <div class="tl-header-left">
+            <span class="source-pill ${ev.source === 'MCS' ? 'mcs' : 'oc'}">${ev.source}</span>
+            <span class="tl-stage">${ev.label}</span>
+            ${badge(ev)}
+          </div>
+          <span class="tl-time">${fmt(ev.ts)}</span>
+          ${d ? `<span class="tl-delta">${d}</span>` : ''}
+          <span class="tl-chevron">›</span>
+        </div>
+        <div class="tl-body">${bodyParts}</div>
+      </div>
+    </div>`;
+
+    prev = ev.ts;
+  });
+
+  html += `</div>`;
+  app.innerHTML = html;
+}
+
+render();
+</script>
+</body>
+</html>
