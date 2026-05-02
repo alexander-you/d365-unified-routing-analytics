@@ -1638,8 +1638,7 @@ function renderMcsGroupItem(group, index, allItems) {
   const hasBody = bodyHtml.length > 0;
 
   return `
-    <div class="tl-item${hasBody ? '' : ' no-expand'}" style="animation-delay:${index * 0.05}s" ${hasBody ? 'onclick="this.classList.toggle(\'open\')"
-' : ''}>
+    <div class="tl-item${hasBody ? '' : ' no-expand'}" style="animation-delay:${index * 0.05}s" ${hasBody ? 'onclick="this.classList.toggle(\'open\')"' : ''}>
       <div class="tl-dot ${dotCls}">${dotLbl}</div>
       <div class="tl-card mcs-card">
         <div class="tl-header">
