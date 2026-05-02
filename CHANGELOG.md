@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [1.0.3c] — 2026-05-02
+
+### MCS Insights Stabilisation
+
+Fixes an issue where enabling MCS Insights caused core Omnichannel routing data (channel, queue, agent, latency) to disappear from the summary cards. MCS Insights is now strictly additive — it enriches the routing analysis without replacing or hiding it.
+
+#### Routing summary cards now use OC-only data
+All routing-derived summary values (Channel, Queue, Assigned Agent, Assignment Method, Routing Latency) are now calculated exclusively from OC routing events. MCS events in the merged array no longer interfere with these derivations.
+
+- **Channel** detection changed from `events[0]?.channel` (which picked up the first MCS event) to `ocEvents.find(e => e.channel)?.channel`, scanning all OC events
+- **Queue** detection now falls back to `queueName`, `queue`, `selectedQueue`, `outputQueue` in addition to `result.DisplayName`, so the queue is shown even when the API returns it in a non-standard field
+- **Agent, Method, Routing Latency** all now search only OC events
+
+#### OC completeness warning
+When MCS Insights is enabled, the UI now validates that core OC routing stages are present in the result:
+- If **zero OC events** are returned (MCS-only payload), a red warning banner appears: "MCS telemetry was returned, but no OC routing events are present in the result."
+- If `ConversationCreated`, `RouteToQueue`, or `CSRAssignment` are missing while OC events exist, an amber warning names which stages are absent
+
+#### Conversation transcript bubbles
+- Bot and customer messages now render in a proper `chat-thread` flex container with distinct visual alignment: bot messages left, customer messages right
+- Each bubble shows the speaker label (`Bot` / `Customer`) above the message
+- MCS group rows that contain messages now show a `💬 N` badge in the collapsed header, making it clear that transcript data is available without expanding
+
+---
+
 ## [1.0.4] — 2026-05-02
 
 ### Diagnostic UI Overhaul

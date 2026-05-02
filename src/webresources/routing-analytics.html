@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -501,40 +501,52 @@
         .legend-dot.err { background: var(--error); }
 
         /* ── Chat bubbles ── */
+        .chat-thread {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 4px 0;
+        }
+        .chat-row {
+            display: flex;
+            flex-direction: column;
+            max-width: 82%;
+        }
+        .chat-row.bot-row { align-self: flex-start; }
+        .chat-row.customer-row { align-self: flex-end; align-items: flex-end; }
+        .chat-speaker {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-dim);
+            margin-bottom: 3px;
+            padding: 0 4px;
+        }
+        .chat-bubble {
+            display: block;
+            padding: 8px 12px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .chat-bubble.bot {
+            background: var(--purple-dim);
+            border: 1px solid rgba(124,58,237,0.25);
+            color: var(--text);
+            border-radius: 2px 12px 12px 12px;
+        }
+        .chat-bubble.customer {
+            background: var(--info-dim);
+            border: 1px solid rgba(37,99,235,0.25);
+            color: var(--text);
+            border-radius: 12px 2px 12px 12px;
+        }
+        /* Legacy — .chat-from used in older renders */
         .chat-from {
             font-size: 10px;
             color: var(--text-dim);
             margin-top: 8px;
             margin-bottom: 2px;
         }
-
-        .chat-bubble {
-            display: inline-block;
-            max-width: 85%;
-            padding: 8px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            line-height: 1.5;
-            margin-top: 2px;
-        }
-
-        .chat-bubble.bot {
-            background: var(--purple-dim);
-            border: 1px solid rgba(124,58,237,0.2);
-            color: var(--text);
-            border-radius: 12px 12px 12px 2px;
-        }
-
-        .chat-bubble.customer {
-            background: var(--info-dim);
-            border: 1px solid rgba(37,99,235,0.2);
-            color: var(--text);
-            border-radius: 12px 12px 2px 12px;
-            margin-left: auto;
-            display: block;
-        }
-
-        /* ── Error code box ── */
+/* ── Error code box ── */
         .error-code-box {
             background: var(--error-dim);
             border: 1px solid var(--error);
@@ -1041,7 +1053,7 @@
                 <button class="btn-info" id="btnInfo" onclick="toggleVersionPopup(event)" title="About"><i>i</i></button>
                 <div class="version-popup" id="versionPopup">
                     <div class="vp-label">Version</div>
-    <div class="vp-value">1.0.4</div>
+    <div class="vp-value">1.0.3c</div>
                 </div>
             </div>
         </div>
@@ -1415,6 +1427,45 @@ function renderMcsSummaryCards(events, mcsContext) {
     <div class="summary-card"><div class="label">Bridge</div><div class="value" style="color:var(--${bridgeColor})">${bridgeLabel}</div></div>`;
 }
 
+// ── OC completeness validation ────────────────────────────────────────────────
+// When MCS Insights is enabled, verify that core OC routing events are present.
+// If they are absent the result is MCS-only and the user needs to know.
+
+function renderOcCompletenessWarning(events, mcsContext) {
+  if (!mcsContext) return '';  // routing-only mode — nothing to warn about
+
+  const getKey   = e => e.stage || e.eventName || '';
+  const ocEvents = events.filter(e => e.source !== 'MCS-Bot');
+
+  if (ocEvents.length === 0) {
+    return `
+    <div class="outcome-banner error" style="margin-bottom:8px">
+      <span class="ob-icon">⚠</span>
+      <div>
+        <div class="ob-text">MCS telemetry was returned, but <strong>no OC routing events</strong> are present in the result.</div>
+        <span class="ob-root">The backend may have returned only the MCS dataset. Core routing diagnostics (channel, queue, agent, routing rules) are unavailable. Check that the Power Automate flow merges both datasets into a single result.</span>
+      </div>
+    </div>`;
+  }
+
+  const MIN_STAGES  = ['ConversationCreated', 'RouteToQueue', 'CSRAssignment'];
+  const presentKeys = new Set(ocEvents.map(getKey));
+  const missing     = MIN_STAGES.filter(s => !presentKeys.has(s));
+
+  if (missing.length > 0) {
+    return `
+    <div class="outcome-banner warning" style="margin-bottom:8px">
+      <span class="ob-icon">⚠</span>
+      <div>
+        <div class="ob-text">Some expected OC routing stages are absent with MCS Insights enabled.</div>
+        <span class="ob-root">Missing: ${missing.join(', ')}. These may not have occurred, or the backend merge may be incomplete. Summary cards that depend on these stages will show as unavailable.</span>
+      </div>
+    </div>`;
+  }
+
+  return '';
+}
+
 function renderSummary(events, mcsContext, diagnosis) {
   if (!events.length) return '';
 
@@ -1423,24 +1474,29 @@ function renderSummary(events, mcsContext, diagnosis) {
   const kv = (label, value) =>
     `<div class="summary-card"><div class="label">${label}</div><div class="value">${value}</div></div>`;
 
-  // Channel
-  const channel = events[0]?.channel || null;
+  // Separate OC events — routing summary must never be derived from MCS events
+  const ocEvents = events.filter(e => e.source !== 'MCS-Bot');
 
-  // Queue
-  const rqEv  = events.find(e => getKey(e) === 'RouteToQueue');
+  // Channel — scan all OC events; first event may be MCS when mode is enabled
+  const channel = ocEvents.find(e => e.channel)?.channel || null;
+
+  // Queue — primary: RouteToQueue.result.DisplayName; then alternative field names
+  const rqEv  = ocEvents.find(e => getKey(e) === 'RouteToQueue');
   const rqRes = safeParseJson(rqEv?.result);
-  const queue = rqRes?.DisplayName || null;
+  const queue = rqRes?.DisplayName || rqEv?.queueName
+    || rqEv?.queue || rqEv?.selectedQueue || rqEv?.outputQueue
+    || null;
 
-  // Agent
-  const accEv    = events.find(e => getKey(e) === 'CSRAccepted');
-  const assignEv = events.find(e => getKey(e) === 'CSRAssignment');
+  // Agent — OC events only
+  const accEv    = ocEvents.find(e => getKey(e) === 'CSRAccepted');
+  const assignEv = ocEvents.find(e => getKey(e) === 'CSRAssignment');
   const assignSt = safeParseJson(assignEv?.assignmentStatus);
   const agent    = accEv?.agentName || assignSt?.AgentDetails?.AgentId || null;
 
-  // Method
+  // Method — OC events only
   const method = assignEv?.assignmentMethod || null;
 
-  // Durations
+  // Durations — total spans full merged array; bot duration is MCS-only
   const first   = new Date(events[0].timestamp);
   const last    = new Date(events[events.length - 1].timestamp);
   const totalMs = last - first;
@@ -1453,8 +1509,8 @@ function renderSummary(events, mcsContext, diagnosis) {
     botDurDisplay = bms < 1000 ? `${bms}ms` : `${(bms / 1000).toFixed(1)}s`;
   }
 
-  // Routing latency
-  const createdEv = events.find(e => getKey(e) === 'ConversationCreated');
+  // Routing latency — OC events only
+  const createdEv = ocEvents.find(e => getKey(e) === 'ConversationCreated');
   let routingLatency = null;
   if (createdEv && assignEv) {
     const ms = new Date(assignEv.timestamp) - new Date(createdEv.timestamp);
@@ -1482,7 +1538,7 @@ function renderSummary(events, mcsContext, diagnosis) {
   }
 
   const isFailedOrAbandoned = diagnosis.type === 'failed' || diagnosis.type === 'abandoned';
-  const ocCount  = events.filter(e => e.source !== 'MCS-Bot').length;
+  const ocCount  = ocEvents.length;
   const mcsCount = mcsEvs.length;
 
   return `
@@ -2019,6 +2075,9 @@ function renderMcsGroupItem(group, index, allItems) {
   if (cleanTopic && cleanTopic.toLowerCase() !== group.label.toLowerCase() && !hasErrors && group.badge !== 'bridge') {
     badgeHtml += ` <span class="tl-stage-badge badge-info">${cleanTopic}</span>`;
   }
+  if (group.messages.length > 0) {
+    badgeHtml += ` <span class="tl-stage-badge" style="background:var(--surface-hover);color:var(--text-muted);font-size:9px">💬 ${group.messages.length}</span>`;
+  }
 
   const time = formatTime(group.timestamp);
   let delta = '';
@@ -2035,11 +2094,12 @@ function renderMcsGroupItem(group, index, allItems) {
   }
 
   if (group.messages.length > 0) {
-    bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Messages</div>`;
+    bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Conversation Transcript</div><div class="chat-thread">`;
     group.messages.forEach(m => {
-      bodyHtml += `<div class="chat-from">${m.from}</div><div class="chat-bubble ${m.from === 'Bot' ? 'bot' : 'customer'}">${m.text}</div>`;
+      const isBot = m.from === 'Bot';
+      bodyHtml += `<div class="chat-row ${isBot ? 'bot-row' : 'customer-row'}"><span class="chat-speaker">${m.from}</span><div class="chat-bubble ${isBot ? 'bot' : 'customer'}">${m.text}</div></div>`;
     });
-    bodyHtml += `</div>`;
+    bodyHtml += `</div></div>`;
   }
 
   if (hasErrors) {
@@ -2123,6 +2183,7 @@ function render(events) {
 
   document.getElementById('mainContent').innerHTML =
     renderOutcomeBanner(diagnosis) +
+    renderOcCompletenessWarning(events, mcsContext) +
     renderSummary(events, mcsContext, diagnosis) +
     renderTimeline(events, diagnosis);
 }
