@@ -4,6 +4,34 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [1.0.3d] — 2026-05-02
+
+### MCS Error Detection & Diagnostic Cycle Grouping
+
+Fixes the core MCS error pipeline: errors were silently showing 0 because the code was checking `ActionExecuted` events instead of `OnErrorLog` events. Additionally, repeated `[trigger → error]` retry patterns are now collapsed into a single expandable **Retry Loop** block in the timeline.
+
+#### Error detection fixed
+- **`buildMcsGroup`**: `hasErrors` and the `errors[]` array now use `eventName === 'OnErrorLog' && text` (was `ActionExecuted`). Error codes such as `AIModelActionBadRequest` and `FlowActionBadRequest` are now correctly surfaced.
+- **`getStageStatus`**: MCS `OnErrorLog` events with a code are now classified as `'error'` status.
+- **`diagnoseConversation`**: `allErrors` filter changed from `ActionExecuted` to `OnErrorLog`. Error counts in outcome diagnosis are now accurate.
+- Error detail label changed from "Action Execution Failed" to "On Error Handler Fired".
+
+#### Diagnostic cycle grouping (`mergeDiagnosticCycles`)
+New function detects consecutive `[triggerTopic + Bot Error Handling]` pairs and collapses ≥2 pairs with the same trigger label into a `_cycle` block:
+- Rendered as a **Retry Loop** accordion (e.g. "billing — Retry Loop (×3) — AIModelActionBadRequest")
+- Each attempt shows its own trigger + error row inside the expanded block
+- Applies to both AI action retries (`billing + On Error`) and flow retries (`Escalate + On Error`)
+
+#### Message placeholder text
+- `BotMessageSend` / `BotMessageReceived` events with empty `text` now render a placeholder: *"(Bot response — content not captured in telemetry)"* instead of a blank bubble
+- All message events are now counted toward the `💬 N` badge, even when text is absent
+
+#### Bot Processing rows suppressed
+- `buildMcsGroup` now marks groups with no named topic as `_lowValue: true`
+- `renderMcsGroupItem` silently drops `_lowValue` groups that have no messages and no errors, removing noise from the timeline
+
+---
+
 ## [1.0.3c] — 2026-05-02
 
 ### MCS Insights Stabilisation

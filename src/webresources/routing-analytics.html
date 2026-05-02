@@ -1023,6 +1023,91 @@
             display: none;
         }
 
+        /* ── Diagnostic cycle block ──────────────────────────────────── */
+        .diagnostic-cycle-block {
+            position: relative;
+            margin-bottom: 4px;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeUp 0.35s ease forwards;
+        }
+        .dcb-header {
+            background: color-mix(in srgb, var(--error) 10%, var(--surface));
+            border: 1px solid var(--error);
+            border-radius: var(--radius) var(--radius) 0 0;
+            padding: 8px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--error);
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dcb-title { flex: 1; }
+        .dcb-code-badge {
+            background: var(--error);
+            color: #fff;
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .dcb-count {
+            background: color-mix(in srgb, var(--error) 20%, var(--surface));
+            color: var(--error);
+            border: 1px solid var(--error);
+            border-radius: 10px;
+            padding: 1px 7px;
+            font-size: 10px;
+        }
+        .dcb-chevron {
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .diagnostic-cycle-block.collapsed .dcb-chevron { transform: rotate(90deg); }
+        .dcb-body {
+            border: 1px solid var(--error);
+            border-top: none;
+            border-radius: 0 0 var(--radius) var(--radius);
+            overflow: hidden;
+            padding: 4px 0;
+        }
+        .diagnostic-cycle-block.collapsed .dcb-body { display: none; }
+        .dcb-pair {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            padding: 4px 0;
+            border-bottom: 1px dashed var(--border);
+        }
+        .dcb-pair:last-child { border-bottom: none; }
+        .dcb-pair-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--text-dim);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            padding: 8px 10px;
+            min-width: 60px;
+        }
+        .dcb-pair-rows { flex: 1; }
+        .dcb-pair-rows .tl-item {
+            margin-bottom: 0;
+            opacity: 1;
+            transform: none;
+            animation: none;
+        }
+        .dcb-pair-rows .tl-item .tl-card {
+            border-radius: 0;
+            border-left-width: 0;
+            border-right: none;
+            border-bottom: none;
+        }
+
         /* ── Missing step row ────────────────────────────────────────── */
         .tl-dot.missing-dot {
             background: var(--warning-dim);
@@ -1053,7 +1138,7 @@
                 <button class="btn-info" id="btnInfo" onclick="toggleVersionPopup(event)" title="About"><i>i</i></button>
                 <div class="version-popup" id="versionPopup">
                     <div class="vp-label">Version</div>
-    <div class="vp-value">1.0.3c</div>
+    <div class="vp-value">1.0.3d</div>
                 </div>
             </div>
         </div>
@@ -1257,10 +1342,10 @@ function groupMcsEvents(allEvents) {
 
 function buildMcsGroup(evs, activeTopic) {
   const cleanRaw   = cleanTopicName(activeTopic);
-  const hasBotSend = evs.some(e => e.eventName === 'BotMessageSend' && e.text);
-  const hasBotRecv = evs.some(e => e.eventName === 'BotMessageReceived' && e.text);
+  const hasBotSend = evs.some(e => e.eventName === 'BotMessageSend');
+  const hasBotRecv = evs.some(e => e.eventName === 'BotMessageReceived');
   const hasOnEvent = evs.some(e => e.eventName === 'OnEventActivity');
-  const hasErrors  = evs.some(e => e.eventName === 'ActionExecuted' && e.text);
+  const hasErrors  = evs.some(e => e.eventName === 'OnErrorLog' && e.text);
 
   // ── Label ──────────────────────────────────────────────────────────────────
   let label, badge, description;
@@ -1286,9 +1371,10 @@ function buildMcsGroup(evs, activeTopic) {
     } else if (lc === 'on error' || lc === 'onerror') {
       label = 'Bot Error Handling';
       badge = 'error';
-      description = hasErrors
-        ? `Bot error handler fired. Error code: ${evs.find(e => e.eventName === 'ActionExecuted' && e.text)?.text}`
-        : 'Bot entered the On Error topic.';
+      const errEv = evs.find(e => e.eventName === 'OnErrorLog' && e.text);
+      description = errEv
+        ? `Bot error handler fired. Error code: ${errEv.text}`
+        : 'Bot entered the On Error topic — error code not extracted.';
     } else {
       label = cleanRaw;
       description = `Bot processed the "${cleanRaw}" topic.`;
@@ -1319,17 +1405,21 @@ function buildMcsGroup(evs, activeTopic) {
   }
 
   const messages = evs
-    .filter(e => (e.eventName === 'BotMessageSend' || e.eventName === 'BotMessageReceived') && e.text)
-    .map(e => ({ from: e.eventName === 'BotMessageSend' ? 'Bot' : 'Customer', text: e.text }));
+    .filter(e => e.eventName === 'BotMessageSend' || e.eventName === 'BotMessageReceived')
+    .map(e => ({
+      from: e.eventName === 'BotMessageSend' ? 'Bot' : 'Customer',
+      text: e.text || null,  // null = placeholder rendered in UI
+    }));
 
   const errors = evs
-    .filter(e => e.eventName === 'ActionExecuted' && e.text)
+    .filter(e => e.eventName === 'OnErrorLog' && e.text)
     .map(e => ({ code: e.text, details: e.details || '' }));
 
   const first = evs[0];
   const last  = evs[evs.length - 1];
   return {
     _grouped: true,
+    _lowValue: label === 'Bot Processing',
     source: 'MCS-Bot',
     topic: activeTopic,
     label,
@@ -1347,9 +1437,9 @@ function buildMcsGroup(evs, activeTopic) {
 }
 
 function getStageStatus(event) {
-  // MCS-Bot events: error if ActionExecuted with an error code, otherwise info
+  // MCS-Bot events: error if OnErrorLog with a code, otherwise info
   if (event.source === 'MCS-Bot') {
-    if (event.eventName === 'ActionExecuted' && event.text) return 'error';
+    if (event.eventName === 'OnErrorLog' && event.text) return 'error';
     return 'info';
   }
 
@@ -1585,7 +1675,7 @@ function diagnoseConversation(events, mcsContext) {
   const hasConvClosed    = ocStage('ConversationClosed') || ocStage('CSRClosedSession');
 
   const mcsEvs    = events.filter(e => e.source === 'MCS-Bot');
-  const allErrors = mcsEvs.filter(e => e.eventName === 'ActionExecuted' && e.text);
+  const allErrors = mcsEvs.filter(e => e.eventName === 'OnErrorLog' && e.text);
   const errorCount = allErrors.length;
 
   const errorsByCode = {};
@@ -1694,6 +1784,58 @@ function detectMissingEvents(events, ctx) {
 // ── Error-run merging ─────────────────────────────────────────────────────────
 // Groups consecutive MCS-Bot items that are error-like or escalation-like
 // into a collapsible error-loop block (minimum 3 items to trigger grouping).
+
+// ── Diagnostic cycle detection ────────────────────────────────────────────────
+// Replaces mergeErrorRuns. Detects [trigger_topic + On_Error] pairs and collapses
+// ≥2 consecutive pairs with the same trigger label into a _cycle block.
+
+function isOnErrorGroup(g) {
+  return g._grouped && g.source === 'MCS-Bot' &&
+    (g.badge === 'error' || /bot error handling/i.test(g.label || ''));
+}
+
+function mergeDiagnosticCycles(items) {
+  const result = [];
+  let i = 0;
+  while (i < items.length) {
+    const item = items[i];
+    if (!item._grouped || item.source !== 'MCS-Bot') { result.push(item); i++; continue; }
+
+    // Check for [triggerTopic + OnError] pairs
+    if (i + 1 < items.length && isOnErrorGroup(items[i + 1])) {
+      const triggerLabel = item.label;
+      const pairs = [{ trigger: item, onError: items[i + 1] }];
+      let j = i + 2;
+      while (
+        j + 1 < items.length &&
+        items[j]._grouped &&
+        items[j].source === 'MCS-Bot' &&
+        items[j].label === triggerLabel &&
+        isOnErrorGroup(items[j + 1])
+      ) {
+        pairs.push({ trigger: items[j], onError: items[j + 1] });
+        j += 2;
+      }
+      if (pairs.length >= 2) {
+        result.push({
+          _cycle: true,
+          source: 'MCS-Bot',
+          triggerLabel,
+          triggerBadge: item.badge,
+          pairs,
+          timestamp: pairs[0].trigger.timestamp,
+          lastTimestamp: pairs[pairs.length - 1].onError.lastTimestamp ||
+                         pairs[pairs.length - 1].onError.timestamp,
+        });
+        i = j;
+        continue;
+      }
+    }
+    result.push(item);
+    i++;
+  }
+  return result;
+}
 
 function mergeErrorRuns(items) {
   const isErrLike = it =>
@@ -1806,6 +1948,74 @@ function renderErrorLoopItem(loop, index, allItems) {
         <div class="timeline" style="padding-left:32px">
           ${innerHtml}
         </div>
+      </div>
+    </div>`;
+}
+
+// ── Diagnostic cycle rendering ────────────────────────────────────────────────
+
+function renderCycleItem(cycle, index, allItems) {
+  const allCodes = cycle.pairs.flatMap(p => p.onError.errors?.map(e => e.code) || []);
+  const codeFreq = {};
+  allCodes.forEach(c => { codeFreq[c] = (codeFreq[c] || 0) + 1; });
+  const topCode = Object.entries(codeFreq).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Error';
+  const count = cycle.pairs.length;
+
+  let delta = '';
+  if (index > 0) {
+    const prev = allItems[index - 1];
+    const prevTs = prev.lastTimestamp || prev.timestamp;
+    if (prevTs) delta = formatDelta(new Date(cycle.timestamp) - new Date(prevTs));
+  }
+
+  let innerHtml = '';
+  cycle.pairs.forEach((p, n) => {
+    const errCode = p.onError.errors?.[0]?.code || '';
+    innerHtml += `
+      <div class="dcb-pair">
+        <div class="dcb-pair-label">Attempt ${n + 1}</div>
+        <div class="dcb-pair-rows">
+          <div class="tl-item no-expand" style="animation-delay:0s">
+            <div class="tl-dot info">→</div>
+            <div class="tl-card mcs-card">
+              <div class="tl-header">
+                <div class="tl-header-left">
+                  <span class="source-pill err">MCS</span>
+                  <span class="tl-stage">${cycle.triggerLabel}</span>
+                </div>
+                <span class="tl-time">${formatTime(p.trigger.timestamp)}</span>
+              </div>
+            </div>
+          </div>
+          <div class="tl-item no-expand" style="animation-delay:0s">
+            <div class="tl-dot error">✕</div>
+            <div class="tl-card mcs-card">
+              <div class="tl-header">
+                <div class="tl-header-left">
+                  <span class="source-pill err">MCS</span>
+                  <span class="tl-stage">${p.onError.label}</span>
+                  ${errCode ? `<span class="tl-stage-badge badge-error" style="font-size:9px">${errCode}</span>` : ''}
+                </div>
+                <span class="tl-time">${formatTime(p.onError.timestamp)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  return `
+    <div class="diagnostic-cycle-block" style="animation-delay:${index * 0.05}s">
+      <div class="dcb-header" onclick="this.closest('.diagnostic-cycle-block').classList.toggle('collapsed')">
+        <span class="source-pill err" style="font-size:9px">MCS</span>
+        <span class="dcb-title">${cycle.triggerLabel} — Retry Loop (×${count})</span>
+        ${delta ? `<span style="font-size:10px;color:var(--error);opacity:0.7;font-weight:400">${delta}</span>` : ''}
+        <span class="dcb-code-badge">${topCode}</span>
+        <span class="dcb-count">${count} attempt${count !== 1 ? 's' : ''}</span>
+        <span class="dcb-chevron">▶</span>
+      </div>
+      <div class="dcb-body">
+        ${innerHtml}
       </div>
     </div>`;
 }
@@ -2055,13 +2265,16 @@ function renderTimelineItem(event, index, events) {
 
 function renderMcsGroupItem(group, index, allItems) {
   const hasErrors  = group.errors.length > 0;
+
+  // Skip low-value Bot Processing groups with no messages and no errors
+  if (group._lowValue && !hasErrors && group.messages.length === 0) return '';
+
   const dotCls     = hasErrors ? 'error' : 'mcs-dot';
   const dotLbl     = hasErrors ? 'ERR' : 'MCS';
   const sourcePill = hasErrors
     ? '<span class="source-pill err">MCS</span>'
     : '<span class="source-pill mcs">MCS</span>';
 
-  // Derive a badge from the group's semantic type
   let badgeHtml = '';
   if (hasErrors) {
     badgeHtml = `<span class="tl-stage-badge badge-error">${group.errors.length} Error${group.errors.length > 1 ? 's' : ''}</span>`;
@@ -2070,7 +2283,6 @@ function renderMcsGroupItem(group, index, allItems) {
   } else if (group.badge === 'escalating') {
     badgeHtml = `<span class="tl-stage-badge badge-warning">Escalating</span>`;
   }
-  // Show clean topic name as a secondary badge only if it differs from the label
   const cleanTopic = cleanTopicName(group.topic);
   if (cleanTopic && cleanTopic.toLowerCase() !== group.label.toLowerCase() && !hasErrors && group.badge !== 'bridge') {
     badgeHtml += ` <span class="tl-stage-badge badge-info">${cleanTopic}</span>`;
@@ -2097,7 +2309,10 @@ function renderMcsGroupItem(group, index, allItems) {
     bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Conversation Transcript</div><div class="chat-thread">`;
     group.messages.forEach(m => {
       const isBot = m.from === 'Bot';
-      bodyHtml += `<div class="chat-row ${isBot ? 'bot-row' : 'customer-row'}"><span class="chat-speaker">${m.from}</span><div class="chat-bubble ${isBot ? 'bot' : 'customer'}">${m.text}</div></div>`;
+      const displayText = m.text
+        ? m.text
+        : `<em style="opacity:0.55">(${isBot ? 'Bot response' : 'Customer message'} — content not captured in telemetry)</em>`;
+      bodyHtml += `<div class="chat-row ${isBot ? 'bot-row' : 'customer-row'}"><span class="chat-speaker">${m.from}</span><div class="chat-bubble ${isBot ? 'bot' : 'customer'}">${displayText}</div></div>`;
     });
     bodyHtml += `</div></div>`;
   }
@@ -2106,7 +2321,7 @@ function renderMcsGroupItem(group, index, allItems) {
     bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Errors (${group.errors.length})</div>`;
     group.errors.forEach(err => {
       bodyHtml += `<div class="error-code-box">
-        <div class="ec-label">Bot Error — Action Execution Failed</div>
+        <div class="ec-label">Bot Error — On Error Handler Fired</div>
         Error code: ${err.code}
         ${err.details ? `<br><span style="opacity:0.75">${err.details}</span>` : ''}
       </div>`;
@@ -2136,9 +2351,12 @@ function renderMcsGroupItem(group, index, allItems) {
 function renderTimeline(events, diagnosis) {
   const hasMCS     = events.some(e => e.source === 'MCS-Bot');
   let items        = hasMCS ? groupMcsEvents(events) : events;
-  if (hasMCS) items = mergeErrorRuns(items);
+  if (hasMCS) {
+    items = mergeDiagnosticCycles(items);
+    items = mergeErrorRuns(items);
+  }
 
-  const hasErrLoop = items.some(it => it._errorLoop);
+  const hasErrLoop = items.some(it => it._errorLoop || it._cycle);
   const hasMissing = diagnosis?.missingEvents?.length > 0;
 
   let html = '';
@@ -2154,7 +2372,9 @@ function renderTimeline(events, diagnosis) {
 
   html += `<div class="timeline">`;
   items.forEach((item, idx) => {
-    if (item._errorLoop) {
+    if (item._cycle) {
+      html += renderCycleItem(item, idx, items);
+    } else if (item._errorLoop) {
       html += renderErrorLoopItem(item, idx, items);
     } else if (item._grouped) {
       html += renderMcsGroupItem(item, idx, items);
