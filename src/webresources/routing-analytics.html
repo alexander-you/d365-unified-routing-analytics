@@ -911,6 +911,116 @@
                 border-radius: 12px;
             }
         }
+
+        /* ── Outcome Banner ──────────────────────────────────────────── */
+        .outcome-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: var(--radius);
+            border: 1px solid;
+            margin-bottom: 16px;
+            opacity: 0;
+            transform: translateY(8px);
+            animation: fadeUp 0.3s ease forwards;
+        }
+        .outcome-banner.success { background: var(--success-dim); border-color: var(--success); }
+        .outcome-banner.warning { background: var(--warning-dim); border-color: var(--warning); }
+        .outcome-banner.error   { background: var(--error-dim);   border-color: var(--error);   }
+        .outcome-banner.info    { background: var(--info-dim);    border-color: var(--info);    }
+        .outcome-banner .ob-icon {
+            font-size: 16px;
+            flex-shrink: 0;
+            line-height: 1.5;
+        }
+        .outcome-banner .ob-text {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.5;
+        }
+        .outcome-banner .ob-root {
+            display: block;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        /* ── KPI missing-value hint ──────────────────────────────────── */
+        .kpi-missing {
+            font-size: 11px;
+            font-style: italic;
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+
+        /* ── Error loop block ────────────────────────────────────────── */
+        .error-loop-block {
+            position: relative;
+            margin-bottom: 4px;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeUp 0.35s ease forwards;
+        }
+        .error-loop-header {
+            background: var(--error-dim);
+            border: 1px solid var(--error);
+            border-radius: var(--radius) var(--radius) 0 0;
+            padding: 8px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--error);
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .error-loop-header .elh-count {
+            background: var(--error);
+            color: #fff;
+            border-radius: 10px;
+            padding: 1px 7px;
+            font-size: 10px;
+            margin-left: auto;
+        }
+        .error-loop-body {
+            border: 1px solid var(--error);
+            border-top: none;
+            border-radius: 0 0 var(--radius) var(--radius);
+            overflow: hidden;
+        }
+        .error-loop-body .tl-item {
+            margin-bottom: 0;
+            opacity: 1;
+            transform: none;
+            animation: none;
+        }
+        .error-loop-body .tl-item .tl-card {
+            border-radius: 0;
+            border-left-width: 0;
+            border-right: none;
+            border-bottom: none;
+        }
+        .error-loop-body .tl-item:not(:last-child) .tl-card {
+            border-bottom: 1px solid var(--border);
+        }
+        .error-loop-block.collapsed .error-loop-body {
+            display: none;
+        }
+
+        /* ── Missing step row ────────────────────────────────────────── */
+        .tl-dot.missing-dot {
+            background: var(--warning-dim);
+            color: var(--warning);
+            border: 2px dashed var(--warning);
+        }
+        .tl-card.missing-card {
+            border-left: 3px dashed var(--warning);
+            opacity: 0.9;
+        }
     </style>
 </head>
 <body>
@@ -931,7 +1041,7 @@
                 <button class="btn-info" id="btnInfo" onclick="toggleVersionPopup(event)" title="About"><i>i</i></button>
                 <div class="version-popup" id="versionPopup">
                     <div class="vp-label">Version</div>
-                    <div class="vp-value">1.0.3a</div>
+    <div class="vp-value">1.0.4</div>
                 </div>
             </div>
         </div>
@@ -1305,58 +1415,367 @@ function renderMcsSummaryCards(events, mcsContext) {
     <div class="summary-card"><div class="label">Bridge</div><div class="value" style="color:var(--${bridgeColor})">${bridgeLabel}</div></div>`;
 }
 
-function renderSummary(events, mcsContext) {
+function renderSummary(events, mcsContext, diagnosis) {
   if (!events.length) return '';
 
-  const first = new Date(events[0].timestamp);
-  const last = new Date(events[events.length - 1].timestamp);
-  const totalSec = ((last - first) / 1000).toFixed(1);
-  const channel = events[0].channel || 'Unknown';
+  const getKey = e => e.stage || e.eventName || '';
+  const noData = txt => `<span class="kpi-missing">${txt}</span>`;
+  const kv = (label, value) =>
+    `<div class="summary-card"><div class="label">${label}</div><div class="value">${value}</div></div>`;
 
-  let queue = '—';
-  const rq = events.find(e => e.stage === 'RouteToQueue');
-  if (rq) {
-    const res = safeParseJson(rq.result);
-    if (res?.DisplayName) queue = res.DisplayName;
+  // Channel
+  const channel = events[0]?.channel || null;
+
+  // Queue
+  const rqEv  = events.find(e => getKey(e) === 'RouteToQueue');
+  const rqRes = safeParseJson(rqEv?.result);
+  const queue = rqRes?.DisplayName || null;
+
+  // Agent
+  const accEv    = events.find(e => getKey(e) === 'CSRAccepted');
+  const assignEv = events.find(e => getKey(e) === 'CSRAssignment');
+  const assignSt = safeParseJson(assignEv?.assignmentStatus);
+  const agent    = accEv?.agentName || assignSt?.AgentDetails?.AgentId || null;
+
+  // Method
+  const method = assignEv?.assignmentMethod || null;
+
+  // Durations
+  const first   = new Date(events[0].timestamp);
+  const last    = new Date(events[events.length - 1].timestamp);
+  const totalMs = last - first;
+  const totalDisplay = totalMs < 1000 ? `${totalMs}ms` : `${(totalMs / 1000).toFixed(1)}s`;
+
+  const mcsEvs = events.filter(e => e.source === 'MCS-Bot');
+  let botDurDisplay = '—';
+  if (mcsEvs.length >= 2) {
+    const bms = new Date(mcsEvs[mcsEvs.length - 1].timestamp) - new Date(mcsEvs[0].timestamp);
+    botDurDisplay = bms < 1000 ? `${bms}ms` : `${(bms / 1000).toFixed(1)}s`;
   }
 
-  let agent = '—';
-  const acc = events.find(e => e.stage === 'CSRAccepted');
-  if (acc?.agentName) agent = acc.agentName;
-
-  let assignTime = '—';
-  const created = events.find(e => e.stage === 'ConversationCreated');
-  const assigned = events.find(e => e.stage === 'CSRAssignment');
-  if (created && assigned) {
-    assignTime = `${((new Date(assigned.timestamp) - new Date(created.timestamp)) / 1000).toFixed(1)}s`;
+  // Routing latency
+  const createdEv = events.find(e => getKey(e) === 'ConversationCreated');
+  let routingLatency = null;
+  if (createdEv && assignEv) {
+    const ms = new Date(assignEv.timestamp) - new Date(createdEv.timestamp);
+    routingLatency = `${(ms / 1000).toFixed(1)}s`;
   }
 
-  const lastStage = events[events.length - 1].stage;
-  let finalStatus = 'In Progress';
-  let statusClass = 'warning';
+  // Status
+  const STATUS_MAP   = { success:'Completed', completed:'Completed', failed:'Failed', abandoned:'Abandoned', in_progress:'In Progress', escalated:'Escalated' };
+  const STATUS_COLOR = { success:'success', completed:'success', failed:'error', abandoned:'warning', in_progress:'warning', escalated:'success' };
+  const statusText   = STATUS_MAP[diagnosis.type]   || 'Unknown';
+  const statusColor  = STATUS_COLOR[diagnosis.type] || 'text-muted';
 
-  if (['CSRClosedSession', 'ConversationClosed'].includes(lastStage)) {
-    finalStatus = 'Completed';
-    statusClass = 'success';
-  } else if (lastStage === 'CSREndedConversation') {
-    finalStatus = 'Wrap-up';
-    statusClass = 'info';
+  // Bot outcome
+  let botOutcomeHtml = noData('No bot data');
+  if (mcsContext) {
+    const om = OUTCOME_META[mcsContext.botOutcome] || OUTCOME_META.Unknown;
+    botOutcomeHtml = `<span style="color:var(--${om.color})">${om.label}</span>`;
   }
 
-  let method = '—';
-  if (assigned?.assignmentMethod) method = assigned.assignmentMethod;
+  // Bridge
+  let bridgeHtml = noData('N/A');
+  if (mcsContext) {
+    const bc = mcsContext.bridgeStatus === 'found' ? 'success' : 'error';
+    bridgeHtml = `<span style="color:var(--${bc})">${mcsContext.bridgeStatus === 'found' ? 'Found' : 'Missing'}</span>`;
+  }
+
+  const isFailedOrAbandoned = diagnosis.type === 'failed' || diagnosis.type === 'abandoned';
+  const ocCount  = events.filter(e => e.source !== 'MCS-Bot').length;
+  const mcsCount = mcsEvs.length;
 
   return `
     <div class="summary-bar">
-      <div class="summary-card"><div class="label">Channel</div><div class="value">${channel}</div></div>
-      <div class="summary-card"><div class="label">Queue</div><div class="value">${queue}</div></div>
-      <div class="summary-card"><div class="label">Agent</div><div class="value">${agent}</div></div>
-      <div class="summary-card"><div class="label">Routing Latency</div><div class="value">${assignTime}</div></div>
-      <div class="summary-card"><div class="label">Total Duration</div><div class="value">${totalSec}s</div></div>
-      <div class="summary-card"><div class="label">Assignment Method</div><div class="value">${method}</div></div>
-      <div class="summary-card"><div class="label">Status</div><div class="value" style="color: var(--${statusClass})">${finalStatus}</div></div>
-      <div class="summary-card"><div class="label">Steps</div><div class="value">${events.length}</div></div>
-      ${mcsContext ? renderMcsSummaryCards(events, mcsContext) : ''}
+      ${kv('Channel',             channel  || noData('Unknown — not in telemetry'))}
+      ${kv('Queue',               queue    || (rqEv ? '—' : noData('Not available — routing event missing')))}
+      ${kv('Assigned Agent',      agent    || (isFailedOrAbandoned ? noData('None — escalation did not complete') : '—'))}
+      ${kv('Assignment Method',   method   || '—')}
+      ${kv('Status',              `<span style="color:var(--${statusColor})">${statusText}</span>`)}
+      ${kv('Bot Outcome',         botOutcomeHtml)}
+      ${kv('Total Duration',      totalDisplay)}
+      ${kv('Bot Duration',        mcsContext ? botDurDisplay : noData('No bot data'))}
+      ${kv('Routing Latency',     routingLatency || (isFailedOrAbandoned ? noData('N/A — no assignment') : '—'))}
+      ${kv('OC Events',           String(ocCount))}
+      ${kv('MCS Events',          mcsContext ? String(mcsCount) : noData('No bot data'))}
+      ${kv('Errors',              diagnosis.errorCount > 0 ? `<span style="color:var(--error)">${diagnosis.errorCount}</span>` : '0')}
+      ${kv('Escalation Attempts', String(diagnosis.escalationAttempts || 0))}
+      ${kv('Bridge',              bridgeHtml)}
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONVERSATION DIAGNOSTICS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ROOT_CAUSE_LABELS = {
+  BOT_ACTION:    'Bot tool / action failure',
+  FLOW_ACTION:   'Flow action failure',
+  NO_ESCALATION: 'OC did not receive escalation signal',
+  NO_QUEUE:      'Queue routing failed',
+  NO_ASSIGNMENT: 'Agent assignment failed',
+  ABANDONED:     'Customer abandoned before routing completed'
+};
+
+function diagnoseConversation(events, mcsContext) {
+  const getKey  = e => e.stage || e.eventName || '';
+  const ocStage = key => events.some(e => e.source !== 'MCS-Bot' && getKey(e) === key);
+
+  const hasRouteToQueue  = ocStage('RouteToQueue');
+  const hasCSRAssignment = ocStage('CSRAssignment');
+  const hasCSRAccepted   = ocStage('CSRAccepted');
+  const hasEscalToCSR    = ocStage('CopilotAgentEscalationToCSR');
+  const hasCustomerEnded = ocStage('CustomerEndedConversation');
+  const hasConvClosed    = ocStage('ConversationClosed') || ocStage('CSRClosedSession');
+
+  const mcsEvs    = events.filter(e => e.source === 'MCS-Bot');
+  const allErrors = mcsEvs.filter(e => e.eventName === 'ActionExecuted' && e.text);
+  const errorCount = allErrors.length;
+
+  const errorsByCode = {};
+  allErrors.forEach(e => { const c = e.text || 'Unknown'; errorsByCode[c] = (errorsByCode[c] || 0) + 1; });
+
+  // Count escalation topic starts (one per attempt)
+  const escalTopics = mcsEvs.filter(e =>
+    e.eventName === 'TopicStart' && e.topic && !isSystemTopic(e.topic) && /escalat/i.test(e.topic));
+  const escalationAttempts = escalTopics.length;
+
+  const assignEv  = events.find(e => getKey(e) === 'CSRAssignment');
+  const assignSt  = safeParseJson(assignEv?.assignmentStatus);
+  const agentAssigned = assignSt?.IsAgentAssigned === true;
+
+  let type = 'in_progress', severity = 'info', banner = '', rootCause = null;
+
+  if (hasCSRAccepted) {
+    type = 'success'; severity = 'success';
+    banner = 'Routing completed — agent assigned and accepted the conversation.';
+  } else if (hasConvClosed && agentAssigned) {
+    type = 'success'; severity = 'success';
+    banner = 'Conversation closed after successful agent assignment.';
+  } else if (hasCustomerEnded && errorCount >= 2) {
+    type = 'failed'; severity = 'error';
+    const errParts = Object.entries(errorsByCode).map(([c, n]) => `${c} (×${n})`).join(' · ');
+    banner = `Conversation failed — customer never reached an agent. `
+           + `${errorCount} bot error${errorCount > 1 ? 's' : ''} blocked escalation. `
+           + `Customer gave up and closed the chat.`
+           + (errParts ? ` Errors: ${errParts}` : '');
+    rootCause = allErrors.some(e => /AIModel/i.test(e.text || ''))
+      ? ROOT_CAUSE_LABELS.BOT_ACTION : ROOT_CAUSE_LABELS.FLOW_ACTION;
+  } else if (hasCustomerEnded) {
+    type = 'abandoned'; severity = 'warning';
+    banner = 'Customer ended the conversation before being connected to an agent.';
+    rootCause = ROOT_CAUSE_LABELS.ABANDONED;
+  } else if (escalationAttempts > 0 && !hasEscalToCSR) {
+    type = 'failed'; severity = 'error';
+    banner = 'Bot triggered escalation but OC did not receive the expected escalation event.';
+    rootCause = ROOT_CAUSE_LABELS.NO_ESCALATION;
+  } else if (hasEscalToCSR && !hasRouteToQueue) {
+    type = 'failed'; severity = 'error';
+    banner = 'Escalation received by OC, but queue routing did not complete.';
+    rootCause = ROOT_CAUSE_LABELS.NO_QUEUE;
+  } else if (hasRouteToQueue && hasCSRAssignment && !agentAssigned) {
+    type = 'failed'; severity = 'error';
+    banner = 'Queue matched, but agent assignment failed — no agents met the routing criteria.';
+    rootCause = ROOT_CAUSE_LABELS.NO_ASSIGNMENT;
+  } else if (hasCSRAssignment && agentAssigned && !hasCSRAccepted) {
+    type = 'in_progress'; severity = 'info';
+    banner = 'Agent assigned — awaiting acceptance.';
+  } else if (hasConvClosed) {
+    type = 'completed'; severity = 'success';
+    banner = 'Conversation has been closed.';
+  } else {
+    banner = 'Conversation is still in progress — partial telemetry shown.';
+  }
+
+  const missingEvents = detectMissingEvents(events, {
+    hasRouteToQueue, hasCSRAssignment, hasCSRAccepted, hasEscalToCSR,
+    hasCustomerEnded, escalationAttempts
+  });
+
+  return { type, severity, banner, rootCause, errorCount, escalationAttempts, errorsByCode, missingEvents };
+}
+
+function detectMissingEvents(events, ctx) {
+  const { hasRouteToQueue, hasCSRAssignment, hasCSRAccepted, hasEscalToCSR,
+          escalationAttempts } = ctx;
+  const getKey = e => e.stage || e.eventName || '';
+  const missing = [];
+
+  if (escalationAttempts > 0 && !hasEscalToCSR) {
+    const lastMcs = [...events].reverse().find(e => e.source === 'MCS-Bot');
+    missing.push({
+      label: 'Expected OC Routing Events — Missing',
+      description: 'Bot triggered escalation to a human agent, but no corresponding OC escalation event was received. '
+                 + 'The bridge between MCS and OC may have failed, or the routing cycle did not start.',
+      badge: 'NEVER RECEIVED', badgeClass: 'error',
+      timestamp: lastMcs?.timestamp
+    });
+  }
+
+  if (hasEscalToCSR && !hasRouteToQueue) {
+    missing.push({
+      label: 'Queue Routing — Not Completed',
+      description: 'OC received the bot escalation signal, but the conversation was never routed to a queue. '
+                 + 'Intent determination or routing rule evaluation may have failed.',
+      badge: 'NOT COMPLETED', badgeClass: 'warning',
+      timestamp: events.find(e => getKey(e) === 'CopilotAgentEscalationToCSR')?.timestamp
+    });
+  }
+
+  if (hasRouteToQueue && !hasCSRAssignment) {
+    missing.push({
+      label: 'Agent Assignment — Not Attempted',
+      description: 'Conversation was routed to a queue, but agent assignment did not occur. '
+                 + 'There may be no available agents or a capacity threshold was not met.',
+      badge: 'NO ASSIGNMENT', badgeClass: 'warning',
+      timestamp: events.find(e => getKey(e) === 'RouteToQueue')?.timestamp
+    });
+  }
+
+  return missing;
+}
+
+// ── Error-run merging ─────────────────────────────────────────────────────────
+// Groups consecutive MCS-Bot items that are error-like or escalation-like
+// into a collapsible error-loop block (minimum 3 items to trigger grouping).
+
+function mergeErrorRuns(items) {
+  const isErrLike = it =>
+    it._grouped && it.source === 'MCS-Bot' &&
+    (it.errors?.length > 0 || it.badge === 'error' || it.badge === 'escalating');
+
+  const result = [];
+  let i = 0;
+  while (i < items.length) {
+    const item = items[i];
+    if (!isErrLike(item)) { result.push(item); i++; continue; }
+
+    const run = [item]; i++;
+    while (i < items.length && isErrLike(items[i])) { run.push(items[i]); i++; }
+
+    if (run.length >= 3) {
+      result.push({
+        _errorLoop: true,
+        source: 'MCS-Bot',
+        items: run,
+        timestamp: run[0].timestamp,
+        lastTimestamp: run[run.length - 1].lastTimestamp || run[run.length - 1].timestamp
+      });
+    } else {
+      result.push(...run);
+    }
+  }
+  return result;
+}
+
+// ── Outcome banner ────────────────────────────────────────────────────────────
+
+function renderOutcomeBanner(diagnosis) {
+  const ICONS = { success:'✓', completed:'✓', failed:'⚠', error:'⚠', abandoned:'⊘', in_progress:'…' };
+  const icon = ICONS[diagnosis.type] || '…';
+  const rootHtml = diagnosis.rootCause
+    ? `<span class="ob-root">Root cause: ${diagnosis.rootCause}</span>` : '';
+  return `
+    <div class="outcome-banner ${diagnosis.severity}">
+      <span class="ob-icon">${icon}</span>
+      <div>
+        <div class="ob-text">${diagnosis.banner}</div>
+        ${rootHtml}
+      </div>
+    </div>`;
+}
+
+// ── Error loop rendering ──────────────────────────────────────────────────────
+
+function renderErrorLoopItem(loop, index, allItems) {
+  const allCodes = loop.items.flatMap(it => it.errors?.map(e => e.code) || []);
+  const codeFreq = {};
+  allCodes.forEach(c => { codeFreq[c] = (codeFreq[c] || 0) + 1; });
+  const topCode = Object.entries(codeFreq).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  const topicCounts = {};
+  loop.items.forEach(it => {
+    if (it.label && it.label !== 'Bot Error Handling' && it.label !== 'Escalate to Agent') {
+      topicCounts[it.label] = (topicCounts[it.label] || 0) + 1;
+    }
+  });
+  const topTopic = Object.entries(topicCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  const count    = loop.items.length;
+  const errCount = allCodes.length;
+  const loopLabel = topCode ? `${topCode} Loop (×${count})` : `Bot Error Loop (×${count})`;
+  const topicPart = topTopic ? ` — ${topTopic.toUpperCase()} TOPIC` : '';
+
+  let delta = '';
+  if (index > 0) {
+    const prev = allItems[index - 1];
+    const prevTs = prev.lastTimestamp || prev.timestamp;
+    if (prevTs) delta = formatDelta(new Date(loop.timestamp) - new Date(prevTs));
+  }
+
+  let innerHtml = '';
+  loop.items.forEach((it, n) => {
+    const itStatus = it.errors?.length > 0 ? 'error' : 'warning';
+    const attemptBadge = `<span class="tl-stage-badge badge-error" style="font-size:9px">ATTEMPT ${n + 1}</span>`;
+    const errCodeBadge = it.errors?.[0]?.code
+      ? `<span class="tl-stage-badge badge-error" style="font-size:9px">${it.errors[0].code}</span>` : '';
+    const hasDetails = !!(it.description);
+    innerHtml += `
+      <div class="tl-item${hasDetails ? '' : ' no-expand'}" style="animation-delay:0s" ${hasDetails ? 'onclick="this.classList.toggle(\'open\')"' : ''}>
+        <div class="tl-dot ${itStatus}">${itStatus === 'warning' ? '!' : '✕'}</div>
+        <div class="tl-card mcs-card">
+          <div class="tl-header">
+            <div class="tl-header-left">
+              <span class="source-pill err">MCS</span>
+              <span class="tl-stage">${it.label}</span>
+              ${attemptBadge}${errCodeBadge}
+            </div>
+            <span class="tl-time">${formatTime(it.timestamp)}</span>
+            ${hasDetails ? '<span class="tl-chevron">▶</span>' : ''}
+          </div>
+          ${hasDetails ? `<div class="tl-body"><div class="tl-desc">${it.description}</div></div>` : ''}
+        </div>
+      </div>`;
+  });
+
+  return `
+    <div class="error-loop-block" style="animation-delay:${index * 0.05}s">
+      <div class="error-loop-header" onclick="this.closest('.error-loop-block').classList.toggle('collapsed')">
+        <span class="source-pill err" style="font-size:9px">MCS</span>
+        <span>${loopLabel}${topicPart}</span>
+        ${delta ? `<span style="font-size:10px;color:var(--error);opacity:0.7;font-weight:400">${delta}</span>` : ''}
+        <span class="elh-count">${errCount} error${errCount !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="error-loop-body">
+        <div class="timeline" style="padding-left:32px">
+          ${innerHtml}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── Missing step row ──────────────────────────────────────────────────────────
+
+function renderMissingEventItem(missing) {
+  return `
+    <div class="tl-item" style="animation-delay:0.05s" onclick="this.classList.toggle('open')">
+      <div class="tl-dot missing-dot">!</div>
+      <div class="tl-card missing-card">
+        <div class="tl-header">
+          <div class="tl-header-left">
+            <span class="source-pill oc">OC</span>
+            <span class="tl-stage">${missing.label}</span>
+            <span class="tl-stage-badge badge-${missing.badgeClass}">${missing.badge}</span>
+          </div>
+          ${missing.timestamp
+            ? `<span class="tl-time">${formatTime(missing.timestamp)}</span>`
+            : '<span class="tl-time" style="color:var(--text-dim)">—</span>'}
+          <span class="tl-chevron">▶</span>
+        </div>
+        <div class="tl-body">
+          <div class="tl-desc">${missing.description}</div>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -1654,44 +2073,58 @@ function renderMcsGroupItem(group, index, allItems) {
     </div>`;
 }
 
-function renderTimeline(events) {
-  const hasMCS = events.some(e => e.source === 'MCS-Bot');
-  const items  = hasMCS ? groupMcsEvents(events) : events;
+function renderTimeline(events, diagnosis) {
+  const hasMCS     = events.some(e => e.source === 'MCS-Bot');
+  let items        = hasMCS ? groupMcsEvents(events) : events;
+  if (hasMCS) items = mergeErrorRuns(items);
+
+  const hasErrLoop = items.some(it => it._errorLoop);
+  const hasMissing = diagnosis?.missingEvents?.length > 0;
 
   let html = '';
   if (hasMCS) {
     html += `<div class="legend">
       <div class="legend-item"><div class="legend-dot oc"></div> OC Routing</div>
       <div class="legend-item"><div class="legend-dot mcs"></div> MCS Bot</div>
+      ${hasErrLoop ? '<div class="legend-item"><div class="legend-dot err"></div> Bot Error Loop</div>' : ''}
+      ${hasMissing ? '<div class="legend-item"><div class="legend-dot" style="background:var(--warning);border:2px dashed var(--warning);box-sizing:border-box;border-radius:50%"></div> Missing Step</div>' : ''}
       <div style="margin-left:auto;font-size:11px;color:var(--text-dim)">Click any row to expand</div>
     </div>`;
   }
 
   html += `<div class="timeline">`;
   items.forEach((item, idx) => {
-    if (item._grouped) {
+    if (item._errorLoop) {
+      html += renderErrorLoopItem(item, idx, items);
+    } else if (item._grouped) {
       html += renderMcsGroupItem(item, idx, items);
     } else {
       html += renderTimelineItem(item, idx, items);
     }
   });
+
+  if (hasMissing) {
+    diagnosis.missingEvents.forEach(m => { html += renderMissingEventItem(m); });
+  }
+
   html += `</div>`;
   return html;
 }
 
 function render(events) {
-  // _outcome/_bridge/_threadId are carried on every row when MCS mode was used.
-  // Extract them once from the first row that has them.
   const metaRow = events.find(e => e._outcome);
   const mcsContext = metaRow ? {
     botOutcome:   metaRow._outcome,
-    bridgeStatus: metaRow._bridge  || 'missing',
+    bridgeStatus: metaRow._bridge   || 'missing',
     mcsThreadId:  metaRow._threadId || ''
   } : null;
 
+  const diagnosis = diagnoseConversation(events, mcsContext);
+
   document.getElementById('mainContent').innerHTML =
-    renderSummary(events, mcsContext) +
-    renderTimeline(events);
+    renderOutcomeBanner(diagnosis) +
+    renderSummary(events, mcsContext, diagnosis) +
+    renderTimeline(events, diagnosis);
 }
 
 function getXrm() {

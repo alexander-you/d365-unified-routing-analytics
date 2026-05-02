@@ -4,6 +4,44 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [1.0.4] — 2026-05-02
+
+### Diagnostic UI Overhaul
+
+The routing timeline now acts as a **diagnostic tool**, not just a data viewer. A support engineer can understand the conversation outcome within seconds.
+
+#### Outcome Banner
+A colour-coded banner now appears at the top of every analysis result:
+- **Green** — routing completed / agent assigned
+- **Amber** — customer abandoned, or conversation in progress
+- **Red** — conversation failed (bot errors, missing escalation, assignment failure)
+
+The banner states what happened in plain language and, where determinable, the **root cause** (e.g. "Bot tool / action failure", "OC did not receive escalation signal").
+
+#### 14 KPI Summary Cards
+The summary row is expanded to 14 cards: Channel, Queue, Assigned Agent, Assignment Method, Status, Bot Outcome, Total Duration, Bot Duration, Routing Latency, OC Events, MCS Events, Errors, Escalation Attempts, Bridge.
+
+Missing values no longer show `—` or `Unknown` silently. Instead they explain the reason:
+- *"Not available — routing event missing"*
+- *"None — escalation did not complete"*
+- *"N/A — no assignment"*
+
+#### Error Loop Grouping
+When 3 or more consecutive MCS error / escalation items appear in the timeline (e.g. repeated `AIModelActionBadRequest` or `FlowActionBadRequest` cycles), they are collapsed into a single **error-loop block**. Each block shows the error code, attempt count, and the dominant topic. Individual attempts are visible inside the expanded block.
+
+#### Missing Step Detection
+After the timeline, the UI now highlights routing steps that were **expected but never received**:
+- Bot escalated, but OC escalation event was never received
+- OC received escalation, but queue routing did not complete
+- Queue matched, but agent assignment was not attempted
+
+These appear as dashed amber rows with explanatory text.
+
+#### Legend Improvements
+The legend dynamically adds "Bot Error Loop" and "Missing Step" entries when those item types are present in the current result.
+
+---
+
 ## [1.0.3a] — 2026-05-02
 
 ### New Feature — MCS Bot Insights
