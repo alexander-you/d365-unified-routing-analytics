@@ -4,6 +4,48 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [1.0.3f] — 2026-05-02
+
+### Chronological diagnostic timeline — full rewrite
+
+This version replaces the monolithic transcript block with a true **chronological diagnostic timeline** where each event is its own row, ordered by real occurrence time.
+
+#### Customer messages are now individual timeline rows
+- Each real `BotMessageReceived` event (customer input) renders as its own **CUSTOMER** row with:
+  - Amber `CUSTOMER` source pill + `👤` dot to visually distinguish from bot events
+  - Right-aligned customer chat bubble (or placeholder if text not in telemetry)
+  - If the message triggered an error loop, a **"TOPIC TRIGGERED"** badge is shown on the row
+
+#### Bot responses are now individual timeline rows
+- The initial bot greeting burst (≤100 ms from first send) renders as **"Bot Greeted Customer"**
+- Subsequent `BotMessageSend` clusters each render as a **"Bot Response"** row
+
+#### Error retry loop attempts now show rich diagnostics
+Each attempt in a diagnostic cycle now includes:
+- **Attempt 1**: Expanded by default with a full error detail panel showing:
+  - Error code (`FlowActionBadRequest`, `AIModelActionBadRequest`, etc.)
+  - Action type (InvokeFlowAction / InvokeAIBuilderModelAction)
+  - Human-readable error description
+  - Root cause explanation and impact
+  - **Execution trace** panel (`✗ action → error code` + `○ On Error → CancelAllDialogs`)
+  - **Bot error message** sent to the customer in the OnError group
+- **Attempt 2+**: Compact rows with **customer message badge** showing what the user said before retrying
+
+#### Item ordering
+- `expandMessageGroups()` runs AFTER `mergeDiagnosticCycles` so retry pairs are correctly detected before any group is split into individual rows
+- The last `customer-msg` row immediately before a `_cycle` block is annotated with a **"TOPIC TRIGGERED"** warning badge
+
+#### New CSS classes
+- `.tl-dot.customer-dot` — amber-outlined dot for customer rows
+- `.source-pill.cust` — amber CUSTOMER pill
+- `.tl-card.customer-msg-card` — amber left border
+- `.error-detail-panel` / `.edp-*` — error information box inside attempt 1
+- `.trace-line.error` / `.trace-line.neutral` — monospace execution trace entries
+- `.cycle-attempt`, `.attempt-row` — attempt wrapper and row inside diagnostic cycle block
+- `.badge-cust` — amber customer message badge
+
+---
+
 ## [1.0.3e] — 2026-05-02
 
 ### Transcript ordering fix + KQL guidance for message text

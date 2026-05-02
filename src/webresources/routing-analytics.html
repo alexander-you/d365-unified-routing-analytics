@@ -1077,6 +1077,7 @@
             padding: 4px 0;
         }
         .diagnostic-cycle-block.collapsed .dcb-body { display: none; }
+        /* Legacy dcb-pair styles kept for compatibility */
         .dcb-pair {
             display: flex;
             align-items: flex-start;
@@ -1106,6 +1107,103 @@
             border-left-width: 0;
             border-right: none;
             border-bottom: none;
+        }
+
+        /* ── Attempt rows inside diagnostic cycle block ──────────────── */
+        .cycle-attempt {
+            border-bottom: 1px dashed var(--border);
+            padding: 4px 0;
+        }
+        .cycle-attempt:last-child { border-bottom: none; }
+        .attempt-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+        }
+        .attempt-row .tl-dot {
+            margin-left: 12px;
+        }
+        .attempt-row .tl-card {
+            border-radius: 0;
+            border-left-width: 0;
+            border-right: none;
+            border-bottom: none;
+            opacity: 1;
+            transform: none;
+            animation: none;
+        }
+        .attempt-row.no-expand .tl-header { cursor: default; }
+
+        /* ── Error detail panel ───────────────────────────────────────── */
+        .error-detail-panel {
+            margin-top: 10px;
+            border: 1px solid color-mix(in srgb, var(--error) 35%, transparent);
+            border-radius: var(--radius);
+            padding: 10px 14px;
+            background: color-mix(in srgb, var(--error) 6%, var(--surface));
+        }
+        .edp-header {
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            color: var(--error);
+            margin-bottom: 8px;
+        }
+        .edp-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .edp-label {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            min-width: 72px;
+            padding-top: 1px;
+        }
+        .edp-val { color: var(--text); font-weight: 500; }
+        .edp-val.err-code { color: var(--error); font-weight: 700; font-family: monospace; font-size: 12px; }
+        .edp-desc { display: block; font-size: 11px; color: var(--text-muted); padding-left: 80px; margin-top: 2px; }
+
+        /* ── Execution trace lines ────────────────────────────────────── */
+        .trace-line {
+            font-size: 11px;
+            font-family: monospace;
+            padding: 2px 6px;
+            margin-bottom: 2px;
+            border-radius: 3px;
+        }
+        .trace-line.error  { color: var(--error); background: var(--error-dim); }
+        .trace-line.neutral { color: var(--text-dim); background: var(--surface-hover); }
+
+        /* ── Customer message row ────────────────────────────────────── */
+        .tl-dot.customer-dot {
+            background: color-mix(in srgb, var(--warning) 18%, var(--surface));
+            color: var(--warning);
+            border: 2px solid var(--warning);
+            font-size: 13px;
+        }
+        .source-pill.cust {
+            background: color-mix(in srgb, var(--warning) 18%, var(--surface));
+            color: var(--warning);
+        }
+        .tl-card.customer-msg-card {
+            border-left: 3px solid var(--warning);
+        }
+        .badge-cust {
+            background: color-mix(in srgb, var(--warning) 18%, var(--surface));
+            color: var(--warning);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.4px;
         }
 
         /* ── Missing step row ────────────────────────────────────────── */
@@ -1138,7 +1236,7 @@
                 <button class="btn-info" id="btnInfo" onclick="toggleVersionPopup(event)" title="About"><i>i</i></button>
                 <div class="version-popup" id="versionPopup">
                     <div class="vp-label">Version</div>
-    <div class="vp-value">1.0.3e</div>
+    <div class="vp-value">1.0.3f</div>
                     <div style="margin-top:8px;font-size:10px;color:var(--text-dim);line-height:1.5">
                       <strong>KQL update needed for message text:</strong><br>
                       In your PA flow, update the MCS events <code>msgText</code> line to:<br>
@@ -1439,6 +1537,7 @@ function buildMcsGroup(evs, activeTopic) {
   const last  = evs[evs.length - 1];
   return {
     _grouped: true,
+    _rawEvs:  evs,
     _lowValue: label === 'Bot Processing',
     source: 'MCS-Bot',
     topic: activeTopic,
@@ -1454,6 +1553,130 @@ function buildMcsGroup(evs, activeTopic) {
     _bridge:   first._bridge,
     _threadId: first._threadId,
   };
+}
+
+// ── Chronological message expansion ──────────────────────────────────────────
+// Converts a monolithic "Conversation Start" group (which bundles all messages
+// into a single transcript block) into individual customer-message and
+// bot-response rows, preserving true chronological order in the timeline.
+
+const ERROR_EXPLANATIONS = {
+  AIModelActionBadRequest: {
+    title: 'AI Builder Model — Bad Request',
+    description: 'The AI Builder model returned a bad request. The model may be unpublished, misconfigured, or receiving invalid input.',
+    impact: 'The On Error handler cancelled all dialogs and reset the conversation state.',
+    actionType: 'InvokeAIBuilderModelAction',
+  },
+  FlowActionBadRequest: {
+    title: 'Power Automate Flow — Bad Request',
+    description: 'The Power Automate flow action returned a bad request. The flow may have failed or the input parameters are invalid.',
+    impact: 'The escalation flow was not executed. OC was not notified.',
+    actionType: 'InvokeFlowAction',
+  },
+  FlowActionClientError: {
+    title: 'Power Automate Flow — Client Error',
+    description: 'The Power Automate flow action returned a client-side error. Check the flow configuration and input mappings.',
+    impact: 'The flow action was rejected before execution.',
+    actionType: 'InvokeFlowAction',
+  },
+};
+
+function splitConversationGroup(group) {
+  const raw = group._rawEvs || [];
+  const items = [];
+
+  // First BotMessageSend establishes the greeting threshold
+  const firstBotSendEv = raw.find(e => e.eventName === 'BotMessageSend');
+  const firstBotSendTime = firstBotSendEv ? new Date(firstBotSendEv.timestamp).getTime() : null;
+  const GREETING_WINDOW_MS = 100; // events within 100 ms of first send are part of the greeting burst
+
+  // Greeting: all BotMessageSend events in the initial burst
+  const greetingMsgs = firstBotSendTime !== null
+    ? raw.filter(e => e.eventName === 'BotMessageSend' &&
+        new Date(e.timestamp).getTime() <= firstBotSendTime + GREETING_WINDOW_MS)
+    : [];
+
+  if (greetingMsgs.length > 0) {
+    items.push({
+      _grouped: true, _itemType: 'bot-greeting',
+      source: 'MCS-Bot', label: 'Bot Greeted Customer',
+      description: 'Bot sent opening greeting messages to the customer.',
+      timestamp: greetingMsgs[0].timestamp,
+      lastTimestamp: greetingMsgs[greetingMsgs.length - 1].timestamp,
+      messages: greetingMsgs.map(e => ({ from: 'Bot', text: e.text || null })),
+      errors: [], badge: undefined, eventCount: greetingMsgs.length,
+      _outcome: group._outcome, _bridge: group._bridge, _threadId: group._threadId,
+    });
+  }
+
+  // Post-greeting: only BotMessageSend/Received after the greeting window
+  const postEvs = raw.filter(e => {
+    if (e.eventName !== 'BotMessageSend' && e.eventName !== 'BotMessageReceived') return false;
+    if (firstBotSendTime === null) return true;
+    const t = new Date(e.timestamp).getTime();
+    if (e.eventName === 'BotMessageSend' && t <= firstBotSendTime + GREETING_WINDOW_MS) return false;
+    if (e.eventName === 'BotMessageReceived' && t <= firstBotSendTime) return false; // system trigger
+    return true;
+  });
+
+  let j = 0;
+  while (j < postEvs.length) {
+    const e = postEvs[j];
+    if (e.eventName === 'BotMessageReceived') {
+      items.push({
+        _grouped: true, _itemType: 'customer-msg',
+        source: 'MCS-Bot', label: 'Customer Message',
+        timestamp: e.timestamp, lastTimestamp: e.timestamp,
+        text: e.text || null,
+        messages: [{ from: 'Customer', text: e.text || null }],
+        errors: [], badge: undefined, eventCount: 1,
+        _outcome: e._outcome, _bridge: e._bridge, _threadId: e._threadId,
+      });
+      j++;
+    } else if (e.eventName === 'BotMessageSend') {
+      const msgs = [];
+      while (j < postEvs.length && postEvs[j].eventName === 'BotMessageSend') {
+        msgs.push(postEvs[j++]);
+      }
+      items.push({
+        _grouped: true, _itemType: 'bot-response',
+        source: 'MCS-Bot', label: 'Bot Response',
+        description: null,
+        timestamp: msgs[0].timestamp,
+        lastTimestamp: msgs[msgs.length - 1].timestamp,
+        messages: msgs.map(e => ({ from: 'Bot', text: e.text || null })),
+        errors: [], badge: undefined, eventCount: msgs.length,
+        _outcome: msgs[0]._outcome, _bridge: msgs[0]._bridge, _threadId: msgs[0]._threadId,
+      });
+    } else {
+      j++;
+    }
+  }
+
+  return items.length > 0 ? items : [group];
+}
+
+function expandMessageGroups(items) {
+  const result = [];
+  for (const item of items) {
+    if (item._grouped && item._rawEvs && item.source === 'MCS-Bot' && !item._itemType) {
+      const raw = item._rawEvs;
+      const firstBotSendEv = raw.find(e => e.eventName === 'BotMessageSend');
+      const firstBotSendTime = firstBotSendEv ? new Date(firstBotSendEv.timestamp).getTime() : null;
+      const hasCustomerMsgs = raw.some(e =>
+        e.eventName === 'BotMessageReceived' &&
+        firstBotSendTime !== null &&
+        new Date(e.timestamp).getTime() > firstBotSendTime + 10);
+      if (hasCustomerMsgs) {
+        result.push(...splitConversationGroup(item));
+      } else {
+        result.push(item);
+      }
+    } else {
+      result.push(item);
+    }
+  }
+  return result;
 }
 
 function getStageStatus(event) {
@@ -1980,6 +2203,7 @@ function renderCycleItem(cycle, index, allItems) {
   allCodes.forEach(c => { codeFreq[c] = (codeFreq[c] || 0) + 1; });
   const topCode = Object.entries(codeFreq).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Error';
   const count = cycle.pairs.length;
+  const explain = ERROR_EXPLANATIONS[topCode] || null;
 
   let delta = '';
   if (index > 0) {
@@ -1988,54 +2212,130 @@ function renderCycleItem(cycle, index, allItems) {
     if (prevTs) delta = formatDelta(new Date(cycle.timestamp) - new Date(prevTs));
   }
 
-  let innerHtml = '';
+  // Customer message immediately before the first attempt (in allItems, just before this cycle)
+  const prevItem = allItems[index - 1];
+  const triggerCustomerMsg = (prevItem?._itemType === 'customer-msg') ? prevItem.text : null;
+
+  let attemptsHtml = '';
   cycle.pairs.forEach((p, n) => {
-    const errCode = p.onError.errors?.[0]?.code || '';
-    innerHtml += `
-      <div class="dcb-pair">
-        <div class="dcb-pair-label">Attempt ${n + 1}</div>
-        <div class="dcb-pair-rows">
-          <div class="tl-item no-expand" style="animation-delay:0s">
-            <div class="tl-dot info">→</div>
-            <div class="tl-card mcs-card">
+    const errCode    = p.onError.errors?.[0]?.code || topCode;
+    const actionEv   = p.trigger._rawEvs?.find(e =>
+      e.eventName === 'TopicAction' &&
+      (e.nodeKind === 'InvokeAIBuilderModelAction' || e.nodeKind === 'InvokeFlowAction'));
+    const actionType = actionEv?.nodeKind || explain?.actionType || '';
+    const nodeIdRaw  = actionEv?.details?.split('| NodeId: ')?.[1] || '';
+    const actionId   = nodeIdRaw.trim() || actionType;
+    const topicName  = cleanTopicName(p.trigger.topic) || cycle.triggerLabel;
+
+    // Customer message that triggered THIS attempt
+    let custMsg = null;
+    if (n === 0) {
+      custMsg = triggerCustomerMsg;
+    } else {
+      // Last customer message absorbed into the previous OnError group
+      const prevOnErrMsgs = cycle.pairs[n - 1].onError.messages || [];
+      const custMsgs = prevOnErrMsgs.filter(m => m.from === 'Customer');
+      custMsg = custMsgs[custMsgs.length - 1]?.text || null;
+    }
+
+    // Bot message sent to customer within the OnError group
+    const botMsgInError = (p.onError.messages || []).find(m => m.from === 'Bot');
+
+    const isFirst = n === 0;
+    const custBadge = (custMsg || n > 0)
+      ? `<span class="tl-stage-badge badge-cust" style="font-size:9px">CUSTOMER: "${custMsg ? custMsg.toUpperCase() : '...'}"</span>`
+      : '';
+
+    if (isFirst) {
+      // ── Attempt 1: expanded by default with rich error panel ──────────────
+      const traceLine1 = actionType
+        ? `<div class="trace-line error">✗ ${actionId} → ${errCode} (attempt 1)</div>`
+        : '';
+      const traceLine2 = actionType
+        ? `<div class="trace-line error">✗ ${actionId} → ${errCode} (retry)</div>`
+        : '';
+      const traceLine3 = `<div class="trace-line neutral">○ On Error → CancelAllDialogs + reset conversation</div>`;
+
+      const botMsgHtml = botMsgInError
+        ? `<div class="tl-detail-label" style="margin-top:8px">ERROR MESSAGE SENT TO CUSTOMER</div>
+           <div class="chat-thread"><div class="chat-row bot-row"><span class="chat-speaker">Bot</span>
+           <div class="chat-bubble bot">${botMsgInError.text || '<em style="opacity:0.55;font-size:11px">📤 Bot response — text not logged</em>'}</div>
+           </div></div>`
+        : '';
+
+      const explainHtml = explain ? `
+        <div class="edp-row"><span class="edp-label">Error code</span><span class="edp-val err-code">${errCode}</span></div>
+        ${actionId !== actionType ? `<div class="edp-row"><span class="edp-label">Action</span><span class="edp-val">${actionId} (${topicName} topic)</span></div>` : ''}
+        <div class="edp-row"><span class="edp-label">Action type</span><span class="edp-val">${actionType}</span></div>
+        <div class="edp-row edp-desc">${explain.description}</div>` : `
+        <div class="edp-row"><span class="edp-label">Error code</span><span class="edp-val err-code">${errCode}</span></div>`;
+
+      attemptsHtml += `
+        <div class="cycle-attempt attempt-expanded">
+          <div class="attempt-row" onclick="this.closest('.cycle-attempt').classList.toggle('open')">
+            <div class="tl-dot error">✕</div>
+            <div class="tl-card mcs-card" style="flex:1">
               <div class="tl-header">
                 <div class="tl-header-left">
                   <span class="source-pill err">MCS</span>
-                  <span class="tl-stage">${cycle.triggerLabel}</span>
+                  <span class="tl-stage">Bot Error — ${errCode}</span>
+                  <span class="tl-stage-badge badge-error" style="font-size:9px">ATTEMPT 1</span>
+                  <span class="tl-stage-badge badge-info" style="font-size:9px">${topicName.toUpperCase()} TOPIC (${actionType.replace('Invoke','').replace('Action','')})</span>
+                </div>
+                <span class="tl-time">${formatTime(p.trigger.timestamp)}</span>
+                <span class="tl-chevron">▶</span>
+              </div>
+              <div class="tl-body">
+                <div class="tl-desc">On Error system topic triggered. CancelAllDialogs reset the entire conversation state.${explain ? ' ' + explain.impact : ''}</div>
+                <div class="error-detail-panel">
+                  <div class="edp-header">ERROR FROM MCS ON ERROR TOPIC</div>
+                  ${explainHtml}
+                </div>
+                ${traceLine1 || traceLine2 ? `
+                <div class="tl-detail-group">
+                  <div class="tl-detail-label">EXECUTION TRACE</div>
+                  ${traceLine1}${traceLine2}${traceLine3}
+                </div>` : ''}
+                ${botMsgHtml}
+              </div>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      // ── Attempt N: compact row ──────────────────────────────────────────────
+      attemptsHtml += `
+        <div class="cycle-attempt">
+          <div class="attempt-row no-expand">
+            <div class="tl-dot error">✕</div>
+            <div class="tl-card mcs-card" style="flex:1">
+              <div class="tl-header">
+                <div class="tl-header-left">
+                  <span class="source-pill err">MCS</span>
+                  <span class="tl-stage">Bot Error — ${errCode}</span>
+                  <span class="tl-stage-badge badge-error" style="font-size:9px">ATTEMPT ${n + 1}</span>
+                  ${custBadge}
                 </div>
                 <span class="tl-time">${formatTime(p.trigger.timestamp)}</span>
               </div>
             </div>
           </div>
-          <div class="tl-item no-expand" style="animation-delay:0s">
-            <div class="tl-dot error">✕</div>
-            <div class="tl-card mcs-card">
-              <div class="tl-header">
-                <div class="tl-header-left">
-                  <span class="source-pill err">MCS</span>
-                  <span class="tl-stage">${p.onError.label}</span>
-                  ${errCode ? `<span class="tl-stage-badge badge-error" style="font-size:9px">${errCode}</span>` : ''}
-                </div>
-                <span class="tl-time">${formatTime(p.onError.timestamp)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>`;
+        </div>`;
+    }
   });
 
+  const loopTypeLabel = explain?.actionType?.replace('Invoke', '').replace('Action', '').toUpperCase() || topCode.toUpperCase();
   return `
     <div class="diagnostic-cycle-block" style="animation-delay:${index * 0.05}s">
       <div class="dcb-header" onclick="this.closest('.diagnostic-cycle-block').classList.toggle('collapsed')">
         <span class="source-pill err" style="font-size:9px">MCS</span>
-        <span class="dcb-title">${cycle.triggerLabel} — Retry Loop (×${count})</span>
+        <span class="dcb-title">${loopTypeLabel} ERROR LOOP (×${count}) — ${cycle.triggerLabel.toUpperCase()} TOPIC</span>
         ${delta ? `<span style="font-size:10px;color:var(--error);opacity:0.7;font-weight:400">${delta}</span>` : ''}
         <span class="dcb-code-badge">${topCode}</span>
         <span class="dcb-count">${count} attempt${count !== 1 ? 's' : ''}</span>
         <span class="dcb-chevron">▶</span>
       </div>
       <div class="dcb-body">
-        ${innerHtml}
+        ${attemptsHtml}
       </div>
     </div>`;
 }
@@ -2285,15 +2585,21 @@ function renderTimelineItem(event, index, events) {
 
 function renderMcsGroupItem(group, index, allItems) {
   const hasErrors  = group.errors.length > 0;
+  const isCustomer = group._itemType === 'customer-msg';
 
-  // Skip low-value Bot Processing groups with no messages and no errors
   if (group._lowValue && !hasErrors && group.messages.length === 0) return '';
 
-  const dotCls     = hasErrors ? 'error' : 'mcs-dot';
-  const dotLbl     = hasErrors ? 'ERR' : 'MCS';
-  const sourcePill = hasErrors
-    ? '<span class="source-pill err">MCS</span>'
-    : '<span class="source-pill mcs">MCS</span>';
+  let dotCls, dotLbl, sourcePill;
+  if (isCustomer) {
+    dotCls = 'customer-dot'; dotLbl = '👤';
+    sourcePill = '<span class="source-pill cust">CUSTOMER</span>';
+  } else if (hasErrors) {
+    dotCls = 'error'; dotLbl = 'ERR';
+    sourcePill = '<span class="source-pill err">MCS</span>';
+  } else {
+    dotCls = 'mcs-dot'; dotLbl = 'MCS';
+    sourcePill = '<span class="source-pill mcs">MCS</span>';
+  }
 
   let badgeHtml = '';
   if (hasErrors) {
@@ -2302,12 +2608,16 @@ function renderMcsGroupItem(group, index, allItems) {
     badgeHtml = `<span class="tl-stage-badge badge-purple">Correlation Bridge</span>`;
   } else if (group.badge === 'escalating') {
     badgeHtml = `<span class="tl-stage-badge badge-warning">Escalating</span>`;
+  } else if (group.badge === 'topic-trigger') {
+    const topicHint = group.label.replace('Customer Raised ', '');
+    badgeHtml = `<span class="tl-stage-badge badge-warning">${topicHint.toUpperCase()} TOPIC TRIGGERED</span>`;
   }
   const cleanTopic = cleanTopicName(group.topic);
-  if (cleanTopic && cleanTopic.toLowerCase() !== group.label.toLowerCase() && !hasErrors && group.badge !== 'bridge') {
+  if (cleanTopic && cleanTopic.toLowerCase() !== group.label.toLowerCase() &&
+      !hasErrors && group.badge !== 'bridge' && group.badge !== 'topic-trigger') {
     badgeHtml += ` <span class="tl-stage-badge badge-info">${cleanTopic}</span>`;
   }
-  if (group.messages.length > 0) {
+  if (group.messages.length > 0 && !isCustomer) {
     badgeHtml += ` <span class="tl-stage-badge" style="background:var(--surface-hover);color:var(--text-muted);font-size:9px">💬 ${group.messages.length}</span>`;
   }
 
@@ -2321,12 +2631,21 @@ function renderMcsGroupItem(group, index, allItems) {
 
   let bodyHtml = '';
 
-  if (group.description) {
+  if (!isCustomer && group.description) {
     bodyHtml += `<div class="tl-desc">${group.description}</div>`;
   }
 
-  if (group.messages.length > 0) {
-    bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Conversation Transcript</div><div class="chat-thread">`;
+  if (isCustomer) {
+    const txt = group.text;
+    const displayText = txt
+      ? txt
+      : `<em style="opacity:0.55;font-size:11px">📥 Customer input — text not logged (update KQL to capture activityText)</em>`;
+    if (group.badge === 'topic-trigger') {
+      bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Message</div><div class="chat-thread"><div class="chat-row customer-row"><span class="chat-speaker">Customer</span><div class="chat-bubble customer">${displayText}</div></div></div></div>`;
+    }
+  } else if (group.messages.length > 0) {
+    const label = group._itemType === 'bot-response' ? 'Bot Response' : 'Conversation Transcript';
+    bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">${label}</div><div class="chat-thread">`;
     group.messages.forEach(m => {
       const isBot = m.from === 'Bot';
       const displayText = m.text
@@ -2350,11 +2669,12 @@ function renderMcsGroupItem(group, index, allItems) {
   }
 
   const hasBody = bodyHtml.length > 0;
+  const cardCls = isCustomer ? 'mcs-card customer-msg-card' : 'mcs-card';
 
   return `
     <div class="tl-item${hasBody ? '' : ' no-expand'}" style="animation-delay:${index * 0.05}s" ${hasBody ? 'onclick="this.classList.toggle(\'open\')"' : ''}>
       <div class="tl-dot ${dotCls}">${dotLbl}</div>
-      <div class="tl-card mcs-card">
+      <div class="tl-card ${cardCls}">
         <div class="tl-header">
           <div class="tl-header-left">
             ${sourcePill}<span class="tl-stage">${group.label}</span>${badgeHtml}
@@ -2372,8 +2692,19 @@ function renderTimeline(events, diagnosis) {
   const hasMCS     = events.some(e => e.source === 'MCS-Bot');
   let items        = hasMCS ? groupMcsEvents(events) : events;
   if (hasMCS) {
-    items = mergeDiagnosticCycles(items);
+    items = mergeDiagnosticCycles(items);  // detect cycles before expand
     items = mergeErrorRuns(items);
+    items = expandMessageGroups(items);    // split conversation groups into individual rows
+    // Label the last customer-msg immediately before each _cycle as the trigger
+    for (let i = 1; i < items.length; i++) {
+      if (items[i]._cycle && items[i - 1]?._itemType === 'customer-msg') {
+        items[i - 1] = {
+          ...items[i - 1],
+          label: `Customer Raised ${items[i].triggerLabel}`,
+          badge: 'topic-trigger',
+        };
+      }
+    }
   }
 
   const hasErrLoop = items.some(it => it._errorLoop || it._cycle);
