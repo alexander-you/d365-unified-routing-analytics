@@ -4,6 +4,46 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [1.0.3g] — 2026-05-02
+
+### Dual-schema compatibility: enriched (MCS) and base (OC-only) modes
+
+The enriched/merged event schema produced by the MCS Insights Power Automate flow uses a
+minimal set of fields (`source`, `eventName`, `text`, `details`, `_bridge`, `_threadId`,
+`_outcome`) and does **not** carry through the rich OC-specific fields (`channel`, `result`,
+`assignmentStatus`, `workItemDetails`, `recordIdentification`, `assignmentMethod`, `agentName`).
+All extraction logic now falls back through both schemas in order.
+
+#### Channel — multi-layer fallback
+1. `e.channel` (base schema — `ConversationCreated` / all OC events)
+2. `safeParseJson(e.additionalInfo).LiveWorkStreamName` from `ConversationDetails`
+3. MCS event `details` field parsed for `"Channel: X"` with display-name mapping:
+   `lcw → Live Chat (Web)`, `msteams → Microsoft Teams`, `telephony → Voice`, etc.
+
+#### Queue — multi-layer fallback
+1. `result.DisplayName` from `RouteToQueue` (base schema)
+2. `additionalInfo.RuleSetInfo` — find the `Status: "Applied"` rule's `Output[0].DisplayName`
+3. Pipe-delimited `details` field parsed for `"Queue: X"` (enriched schema)
+
+`RouteToQueue` selection now prefers the event that has a matched/applied queue rather
+than always using the first occurrence.
+
+#### Agent — adds `details` fallback
+Parses `"Agent: X"` from `CSRAccepted.details` when `agentName` field is absent.
+
+#### Timeline badges — enriched-mode fallbacks
+- `RouteToQueue` badge: checks `additionalInfo.RuleSetInfo` applied rule and `details`
+- `RecordIdentification` badge: checks status keywords in `details` string
+- `CSRAssignment` badge: infers assigned/failed from `details` "Agent" presence
+- OC event description: shows `details` when `description` is absent (enriched schema)
+- New: `RecordIdentification` in enriched mode shows `details` as body text
+
+#### Diagnostics
+`agentAssigned` now falls back to `hasCSRAccepted` when `assignmentStatus` is absent
+(prevents incorrect "Agent Assignment — Not Attempted" banners in enriched mode).
+
+---
+
 ## [1.0.3f] — 2026-05-02
 
 ### Chronological diagnostic timeline — full rewrite

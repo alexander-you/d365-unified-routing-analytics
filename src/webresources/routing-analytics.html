@@ -1236,7 +1236,7 @@
                 <button class="btn-info" id="btnInfo" onclick="toggleVersionPopup(event)" title="About"><i>i</i></button>
                 <div class="version-popup" id="versionPopup">
                     <div class="vp-label">Version</div>
-    <div class="vp-value">1.0.3f</div>
+    <div class="vp-value">1.0.3g</div>
                     <div style="margin-top:8px;font-size:10px;color:var(--text-dim);line-height:1.5">
                       <strong>KQL update needed for message text:</strong><br>
                       In your PA flow, update the MCS events <code>msgText</code> line to:<br>
@@ -1810,24 +1810,64 @@ function renderSummary(events, mcsContext, diagnosis) {
   // Separate OC events — routing summary must never be derived from MCS events
   const ocEvents = events.filter(e => e.source !== 'MCS-Bot');
 
-  // Channel — scan all OC events; first event may be MCS when mode is enabled
-  const channel = ocEvents.find(e => e.channel)?.channel || null;
+  // Helper: extract a named segment from a pipe-delimited details string
+  // e.g. "WorkItem: X | Queue: Billing & Payment | Agent: " → parseDetails(str, 'Queue') → "Billing & Payment"
+  const parseDetails = (str, key) => {
+    if (!str) return null;
+    const m = str.match(new RegExp(`${key}:\\s*([^|]+?)(?:\\s*\\||$)`));
+    const v = m?.[1]?.trim();
+    return v || null;
+  };
 
-  // Queue — primary: RouteToQueue.result.DisplayName; then alternative field names
-  const rqEv  = ocEvents.find(e => getKey(e) === 'RouteToQueue');
+  // Channel — try: (1) direct field (base schema), (2) ConversationDetails additionalInfo,
+  //              (3) MCS event details "Channel: X" pattern (enriched schema)
+  const MCS_CH_MAP = { lcw: 'Live Chat (Web)', directline: 'Direct Line', msteams: 'Microsoft Teams',
+    directlinespeech: 'Direct Line Speech', telephony: 'Voice', omnichannel: 'Omnichannel' };
+  let channel = ocEvents.find(e => e.channel)?.channel || null;
+  if (!channel) {
+    const cdEv = ocEvents.find(e => getKey(e) === 'ConversationDetails');
+    channel = safeParseJson(cdEv?.additionalInfo)?.LiveWorkStreamName || null;
+  }
+  if (!channel) {
+    const mcsChRaw = events
+      .find(e => e.source === 'MCS-Bot' && e.details?.includes('Channel:'))
+      ?.details?.match(/Channel:\s*(\S+)/)?.[1]?.toLowerCase() || null;
+    if (mcsChRaw) channel = MCS_CH_MAP[mcsChRaw] || mcsChRaw;
+  }
+
+  // Queue — try: (1) RouteToQueue.result.DisplayName (base schema),
+  //             (2) RouteToQueue.additionalInfo.RuleSetInfo Applied rule (base schema),
+  //             (3) parse "Queue: X" from RouteToQueue.details (enriched schema),
+  //             (4) last RouteToQueue if multiple (pick applied one)
+  const rqEvs = ocEvents.filter(e => getKey(e) === 'RouteToQueue');
+  // Prefer the event whose result/additionalInfo shows a successfully applied queue
+  const rqEv = rqEvs.find(e => {
+    const r = safeParseJson(e.result);
+    if (r?.DisplayName) return true;
+    const ai = safeParseJson(e.additionalInfo);
+    return ai?.RuleSetInfo?.some(r => r.Status === 'Applied');
+  }) || rqEvs[rqEvs.length - 1] || null;
   const rqRes = safeParseJson(rqEv?.result);
-  const queue = rqRes?.DisplayName || rqEv?.queueName
-    || rqEv?.queue || rqEv?.selectedQueue || rqEv?.outputQueue
-    || null;
+  let queue = rqRes?.DisplayName || null;
+  if (!queue && rqEv?.additionalInfo) {
+    const ai = safeParseJson(rqEv.additionalInfo);
+    const applied = ai?.RuleSetInfo?.find(r => r.Status === 'Applied');
+    queue = applied?.Output?.[0]?.DisplayName || null;
+  }
+  if (!queue) queue = parseDetails(rqEv?.details, 'Queue');
+  if (!queue) queue = rqEv?.queueName || rqEv?.queue || rqEv?.selectedQueue || rqEv?.outputQueue || null;
 
-  // Agent — OC events only
+  // Agent — try: (1) CSRAccepted.agentName (base schema), (2) parse details, (3) assignmentStatus
   const accEv    = ocEvents.find(e => getKey(e) === 'CSRAccepted');
   const assignEv = ocEvents.find(e => getKey(e) === 'CSRAssignment');
   const assignSt = safeParseJson(assignEv?.assignmentStatus);
-  const agent    = accEv?.agentName || assignSt?.AgentDetails?.AgentId || null;
+  let agent = accEv?.agentName
+    || parseDetails(accEv?.details, 'Agent')
+    || assignSt?.AgentDetails?.AgentId || null;
 
-  // Method — OC events only
-  const method = assignEv?.assignmentMethod || null;
+  // Method — try: (1) assignmentMethod field (base schema), (2) parse details
+  const method = assignEv?.assignmentMethod
+    || parseDetails(assignEv?.details, 'Method') || null;
 
   // Durations — total spans full merged array; bot duration is MCS-only
   const first   = new Date(events[0].timestamp);
@@ -1931,7 +1971,8 @@ function diagnoseConversation(events, mcsContext) {
 
   const assignEv  = events.find(e => getKey(e) === 'CSRAssignment');
   const assignSt  = safeParseJson(assignEv?.assignmentStatus);
-  const agentAssigned = assignSt?.IsAgentAssigned === true;
+  // In enriched schema assignmentStatus may be absent; fall back to presence of CSRAccepted
+  const agentAssigned = assignSt?.IsAgentAssigned === true || hasCSRAccepted;
 
   let type = 'in_progress', severity = 'info', banner = '', rootCause = null;
 
@@ -2412,20 +2453,32 @@ function renderTimelineItem(event, index, events) {
       } else if (st.includes('Identified')) {
         badge = `<span class="tl-stage-badge badge-success">Identified</span>`;
       }
+    } else if (event.details) {
+      // enriched schema: status may be embedded in details string
+      if (/NoUnique/i.test(event.details))    badge = `<span class="tl-stage-badge badge-warning">No Unique Match</span>`;
+      else if (/Identified/i.test(event.details)) badge = `<span class="tl-stage-badge badge-success">Identified</span>`;
     }
   } else if (stageKey === 'CSRAssignment') {
     const as = safeParseJson(event.assignmentStatus);
-    badge = as?.IsAgentAssigned
+    const assigned = as ? as.IsAgentAssigned : (event.details ? /Agent:[^|]+\S/.test(event.details) : false);
+    badge = assigned
       ? `<span class="tl-stage-badge badge-success">Assigned</span>`
       : `<span class="tl-stage-badge badge-error">Failed</span>`;
-    if (event.assignmentMethod) {
-      badge += ` <span class="tl-stage-badge badge-info">${event.assignmentMethod}</span>`;
-    }
+    const meth = event.assignmentMethod || (event.details?.match(/Method:\s*([^|]+?)(?:\s*\||$)/)?.[1]?.trim());
+    if (meth) badge += ` <span class="tl-stage-badge badge-info">${meth}</span>`;
   } else if (stageKey === 'RouteToQueue') {
     const res = safeParseJson(event.result);
-    if (res?.DisplayName) {
-      badge = `<span class="tl-stage-badge badge-success">${res.DisplayName}</span>`;
+    let queueName = res?.DisplayName || null;
+    if (!queueName && event.additionalInfo) {
+      const ai = safeParseJson(event.additionalInfo);
+      const applied = ai?.RuleSetInfo?.find(r => r.Status === 'Applied');
+      queueName = applied?.Output?.[0]?.DisplayName || null;
     }
+    if (!queueName && event.details) {
+      const m = event.details.match(/Queue:\s*([^|]+?)(?:\s*\||$)/);
+      queueName = m?.[1]?.trim() || null;
+    }
+    if (queueName) badge = `<span class="tl-stage-badge badge-success">${queueName}</span>`;
   } else if (event.newState) {
     badge = `<span class="tl-stage-badge badge-info">${event.previousState} → ${event.newState}</span>`;
   }
@@ -2454,8 +2507,8 @@ function renderTimelineItem(event, index, events) {
     }
   }
 
-  if (!isMCS && event.description) {
-    bodyHtml += `<div class="tl-desc">${event.description}</div>`;
+  if (!isMCS && (event.description || event.details)) {
+    bodyHtml += `<div class="tl-desc">${event.description || event.details}</div>`;
   }
 
   if (event.recordIdentification) {
@@ -2491,6 +2544,9 @@ function renderTimelineItem(event, index, events) {
         });
       }
     }
+  } else if (stageKey === 'RecordIdentification' && event.details) {
+    // Enriched schema: show details as description for record identification
+    bodyHtml += `<div class="tl-desc">${event.details}</div>`;
   }
 
   if (event.additionalInfo) {
@@ -2559,6 +2615,21 @@ function renderTimelineItem(event, index, events) {
           <div class="tl-kv-grid">
             <span class="k">Queue</span><span class="v highlight">${res.DisplayName}</span>
             <span class="k">Queue ID</span><span class="v">${res.Id}</span>
+          </div>
+        </div>`;
+    }
+  } else if (stageKey === 'RouteToQueue' && event.additionalInfo) {
+    // Enriched schema: no result field, but additionalInfo.RuleSetInfo has the applied queue
+    const ai = safeParseJson(event.additionalInfo);
+    const applied = ai?.RuleSetInfo?.find(r => r.Status === 'Applied');
+    const qName = applied?.Output?.[0]?.DisplayName;
+    if (qName) {
+      bodyHtml += `
+        <div class="tl-detail-group">
+          <div class="tl-detail-label">Selected Queue</div>
+          <div class="tl-kv-grid">
+            <span class="k">Queue</span><span class="v highlight">${qName}</span>
+            <span class="k">Rule</span><span class="v">${applied.RuleItem || '—'}</span>
           </div>
         </div>`;
     }
