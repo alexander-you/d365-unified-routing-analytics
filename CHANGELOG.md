@@ -4,7 +4,38 @@ All notable changes to this project are documented in this file.
 
 ---
 
-## [1.0.3d] — 2026-05-02
+## [1.0.3e] — 2026-05-02
+
+### Transcript ordering fix + KQL guidance for message text
+
+#### Transcript event ordering fixed
+The conversation transcript was incorrectly showing a **Customer bubble as the very first item**, before any bot greetings. Root cause: Copilot Studio fires a `BotMessageReceived` event 0.3 ms before the first `BotMessageSend` — this is the OC handoff trigger that activates the bot, not a real customer message. The fix filters out any `BotMessageReceived` event that arrives at or before the first `BotMessageSend` in the same group.
+
+#### Message text placeholder improved
+When message text is empty in the telemetry, the placeholder now reads:
+- `📤 Bot response — text not logged (update KQL to capture activityText)` 
+- `📥 Customer input — text not logged (update KQL to capture activityText)`
+
+This makes clear that the fix is a KQL change, not a data issue.
+
+#### KQL fix needed for message text (apply manually in Power Automate flow)
+In the **MCS Bot Events** section of the query, change:
+```kql
+msgText = tostring(cd["Text"]),
+```
+to:
+```kql
+msgText = coalesce(
+  iff(isnotempty(tostring(cd["Text"])),         tostring(cd["Text"]),         ""),
+  iff(isnotempty(tostring(cd["activityText"])), tostring(cd["activityText"]), ""),
+  iff(isnotempty(tostring(cd["ActivityText"])), tostring(cd["ActivityText"]), "")
+),
+```
+For LCW/OmniChannel integrations, customer message text is often stored in `activityText` rather than `Text`. The fallback chain ensures the correct field is used regardless of how the channel populates custom dimensions.
+
+---
+
+
 
 ### MCS Error Detection & Diagnostic Cycle Grouping
 

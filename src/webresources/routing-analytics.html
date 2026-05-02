@@ -1138,7 +1138,12 @@
                 <button class="btn-info" id="btnInfo" onclick="toggleVersionPopup(event)" title="About"><i>i</i></button>
                 <div class="version-popup" id="versionPopup">
                     <div class="vp-label">Version</div>
-    <div class="vp-value">1.0.3d</div>
+    <div class="vp-value">1.0.3e</div>
+                    <div style="margin-top:8px;font-size:10px;color:var(--text-dim);line-height:1.5">
+                      <strong>KQL update needed for message text:</strong><br>
+                      In your PA flow, update the MCS events <code>msgText</code> line to:<br>
+                      <code>coalesce(cd["Text"], cd["activityText"], cd["ActivityText"])</code>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1404,11 +1409,26 @@ function buildMcsGroup(evs, activeTopic) {
     }
   }
 
-  const messages = evs
-    .filter(e => e.eventName === 'BotMessageSend' || e.eventName === 'BotMessageReceived')
+  // Build the transcript: filter out the OC handoff trigger BotMessageReceived
+  // (it fires ≤1 ms before the first BotMessageSend and is NOT a real customer message)
+  const msgEvs = evs.filter(e =>
+    e.eventName === 'BotMessageSend' || e.eventName === 'BotMessageReceived');
+  const firstBotSendTime = (() => {
+    const ev = msgEvs.find(e => e.eventName === 'BotMessageSend');
+    return ev ? new Date(ev.timestamp).getTime() : null;
+  })();
+  const messages = msgEvs
+    .filter(e => {
+      if (e.eventName === 'BotMessageSend') return true;
+      // Drop BotMessageReceived events that arrive at or before the first BotMessageSend;
+      // those are OC routing triggers, not real customer messages.
+      if (firstBotSendTime !== null &&
+          new Date(e.timestamp).getTime() <= firstBotSendTime) return false;
+      return true;
+    })
     .map(e => ({
       from: e.eventName === 'BotMessageSend' ? 'Bot' : 'Customer',
-      text: e.text || null,  // null = placeholder rendered in UI
+      text: e.text || null,
     }));
 
   const errors = evs
@@ -2311,7 +2331,7 @@ function renderMcsGroupItem(group, index, allItems) {
       const isBot = m.from === 'Bot';
       const displayText = m.text
         ? m.text
-        : `<em style="opacity:0.55">(${isBot ? 'Bot response' : 'Customer message'} — content not captured in telemetry)</em>`;
+        : `<em style="opacity:0.55;font-size:11px">${isBot ? '📤 Bot response' : '📥 Customer input'} — text not logged (update KQL to capture activityText)</em>`;
       bodyHtml += `<div class="chat-row ${isBot ? 'bot-row' : 'customer-row'}"><span class="chat-speaker">${m.from}</span><div class="chat-bubble ${isBot ? 'bot' : 'customer'}">${displayText}</div></div>`;
     });
     bodyHtml += `</div></div>`;
