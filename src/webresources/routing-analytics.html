@@ -1236,10 +1236,15 @@
                 <button class="btn-info" id="btnInfo" onclick="toggleVersionPopup(event)" title="About"><i>i</i></button>
                 <div class="version-popup" id="versionPopup">
                     <div class="vp-label">Version</div>
-    <div class="vp-value">1.0.3g</div>
+    <div class="vp-value">1.0.3h</div>
                     <div style="margin-top:8px;font-size:10px;color:var(--text-dim);line-height:1.5">
-                      <strong>KQL update needed for message text:</strong><br>
-                      In your PA flow, update the MCS events <code>msgText</code> line to:<br>
+                      <strong>PA flow fix needed for full MCS Insights data:</strong><br>
+                      In the flow merge step, preserve all original OC fields
+                      (<code>channel</code>, <code>result</code>, <code>additionalInfo</code>,
+                      <code>assignmentStatus</code>, <code>agentName</code>, etc.) and add
+                      <code>_bridge</code>/<code>_threadId</code>/<code>_outcome</code> alongside them.<br><br>
+                      <strong>KQL fix for customer message text:</strong><br>
+                      Change MCS events <code>msgText</code> to:<br>
                       <code>coalesce(cd["Text"], cd["activityText"], cd["ActivityText"])</code>
                     </div>
                 </div>
@@ -1781,9 +1786,28 @@ function renderOcCompletenessWarning(events, mcsContext) {
     </div>`;
   }
 
+  // Detect stripped schema: PA flow merge normalised OC events to a minimal template,
+  // discarding all rich per-event fields (channel, result, additionalInfo, etc.)
+  const isStrippedOcMode = ocEvents.every(e => !e.channel && !e.result && !e.description);
+
   const MIN_STAGES  = ['ConversationCreated', 'RouteToQueue', 'CSRAssignment'];
   const presentKeys = new Set(ocEvents.map(getKey));
   const missing     = MIN_STAGES.filter(s => !presentKeys.has(s));
+
+  if (isStrippedOcMode) {
+    const missingNote = missing.length > 0
+      ? ` Additionally, ${missing.length} expected event(s) are absent: ${missing.join(', ')}.`
+      : '';
+    return `
+    <div class="outcome-banner warning" style="margin-bottom:8px">
+      <span class="ob-icon">⚠</span>
+      <div>
+        <div class="ob-text">OC routing data is <strong>incomplete in MCS Insights mode</strong> — PA flow fix required.</div>
+        <span class="ob-root">The PA flow's merge step normalises OC events to a minimal schema, discarding channel, queue, agent, record identification, and assignment details.${missingNote}
+          <br><strong>Fix:</strong> In the PA flow, when building the merged output for OC events, copy all original fields (channel, result, additionalInfo, assignmentStatus, agentName, recordIdentification, description, workItemDetails…) and add _bridge / _threadId / _outcome alongside them. Do not replace the original fields — only append the correlation fields.</span>
+      </div>
+    </div>`;
+  }
 
   if (missing.length > 0) {
     return `
@@ -1809,6 +1833,10 @@ function renderSummary(events, mcsContext, diagnosis) {
 
   // Separate OC events — routing summary must never be derived from MCS events
   const ocEvents = events.filter(e => e.source !== 'MCS-Bot');
+
+  // Detect enriched stripped schema: PA flow discards all rich OC fields in MCS Insights mode
+  const isStrippedOcMode = !!mcsContext && ocEvents.length > 0
+    && ocEvents.every(e => !e.channel && !e.result && !e.description);
 
   // Helper: extract a named segment from a pipe-delimited details string
   // e.g. "WorkItem: X | Queue: Billing & Payment | Agent: " → parseDetails(str, 'Queue') → "Billing & Payment"
@@ -1916,8 +1944,8 @@ function renderSummary(events, mcsContext, diagnosis) {
 
   return `
     <div class="summary-bar">
-      ${kv('Channel',             channel  || noData('Unknown — not in telemetry'))}
-      ${kv('Queue',               queue    || (rqEv ? '—' : noData('Not available — routing event missing')))}
+      ${kv('Channel',             channel  || (isStrippedOcMode ? noData('Not in MCS result — PA flow fix needed') : noData('Unknown — not in telemetry')))}
+      ${kv('Queue',               queue    || (isStrippedOcMode && rqEv ? noData('Not in MCS result — PA flow fix needed') : (rqEv ? '—' : noData('Not available — routing event missing'))))}
       ${kv('Assigned Agent',      agent    || (isFailedOrAbandoned ? noData('None — escalation did not complete') : '—'))}
       ${kv('Assignment Method',   method   || '—')}
       ${kv('Status',              `<span style="color:var(--${statusColor})">${statusText}</span>`)}
@@ -2507,8 +2535,28 @@ function renderTimelineItem(event, index, events) {
     }
   }
 
-  if (!isMCS && (event.description || event.details)) {
-    bodyHtml += `<div class="tl-desc">${event.description || event.details}</div>`;
+  if (!isMCS) {
+    if (event.description) {
+      bodyHtml += `<div class="tl-desc">${event.description}</div>`;
+    } else if (event.details) {
+      if (event.details.includes('|')) {
+        // Pipe-delimited template (enriched schema): parse into KV pairs, skip empty values
+        const kvSegs = event.details.split('|').map(s => {
+          const idx = s.indexOf(':');
+          if (idx < 0) return null;
+          const k = s.slice(0, idx).trim();
+          const v = s.slice(idx + 1).trim();
+          return v ? { k, v } : null;
+        }).filter(Boolean);
+        if (kvSegs.length) {
+          bodyHtml += `<div class="tl-detail-group"><div class="tl-kv-grid">${
+            kvSegs.map(s => `<span class="k">${s.k}</span><span class="v">${s.v}</span>`).join('')
+          }</div></div>`;
+        }
+      } else {
+        bodyHtml += `<div class="tl-desc">${event.details}</div>`;
+      }
+    }
   }
 
   if (event.recordIdentification) {
@@ -2544,9 +2592,8 @@ function renderTimelineItem(event, index, events) {
         });
       }
     }
-  } else if (stageKey === 'RecordIdentification' && event.details) {
-    // Enriched schema: show details as description for record identification
-    bodyHtml += `<div class="tl-desc">${event.details}</div>`;
+  } else if (stageKey === 'RecordIdentification') {
+    // No rich RI data in enriched schema — already handled by the KV parser above
   }
 
   if (event.additionalInfo) {

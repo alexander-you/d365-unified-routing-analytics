@@ -4,6 +4,43 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [1.0.3h] — 2026-05-02
+
+### Enriched-schema gap handling: stripped OC field detection + cleaner UI
+
+Root cause confirmed: when `IncludeMCS=true`, the PA flow's merge step replaces all rich OC
+fields with a minimal template (`WorkItem: X | Queue:  | Agent: ` — Queue and Agent always
+empty). This PR adds explicit detection of this "stripped mode" and surfaces actionable guidance
+everywhere the missing data would otherwise render silently or misleadingly.
+
+#### `renderOcCompletenessWarning` — stripped mode detection
+- Detects stripped schema when all OC events lack `channel`, `result`, and `description`
+- Replaces the generic "missing stages" warning with a specific advisory that:
+  - Names the stripped fields
+  - Lists any absent expected events
+  - Provides the exact PA flow fix: *preserve all original OC fields and add `_bridge` /
+    `_threadId` / `_outcome` alongside them — do not replace the originals*
+
+#### `renderSummary` — better messages for stripped mode
+- **Channel**: shows `Not in MCS result — PA flow fix needed` (instead of generic
+  "Unknown — not in telemetry") when stripped mode is detected and channel is absent
+- **Queue**: shows `Not in MCS result — PA flow fix needed` (instead of `—`) when stripped
+  mode is detected and `RouteToQueue` event is present but queue value is empty
+
+#### `renderTimelineItem` — structured KV body for pipe-delimited details
+- OC event body now parses pipe-delimited `details` strings (`WorkItem: X | Queue:  | Agent: `)
+  into structured key–value rows, **filtering out empty values** — so the WorkItem ID is shown
+  cleanly but the empty Queue / Agent segments are suppressed
+- Non-pipe-delimited `description` / `details` are rendered as plain text (unchanged)
+- Removed duplicate `RecordIdentification` enriched-schema body that was double-rendering
+  the template string
+
+#### Version popup — PA flow fix instructions
+- Replaced KQL-only note with comprehensive guidance covering both the PA flow merge-step
+  fix (for Channel/Queue/agent/RI data) and the KQL fix (for customer message text)
+
+---
+
 ## [1.0.3g] — 2026-05-02
 
 ### Dual-schema compatibility: enriched (MCS) and base (OC-only) modes
