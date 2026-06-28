@@ -35,6 +35,8 @@
             --error-dim: rgba(248,113,113,0.12);
             --info: #60a5fa;
             --info-dim: rgba(96,165,250,0.12);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167,139,250,0.13);
             --radius: 8px;
             --font: 'Segoe UI', -apple-system, sans-serif;
             --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
@@ -58,6 +60,8 @@
             --error-dim: rgba(220,38,38,0.10);
             --info: #2563eb;
             --info-dim: rgba(37,99,235,0.10);
+            --purple: #7c3aed;
+            --purple-dim: rgba(124,58,237,0.10);
         }
 
         * {
@@ -145,6 +149,43 @@
         .btn-search:disabled {
             opacity: 0.4;
             cursor: not-allowed;
+        }
+
+        .mcs-toggle {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 9px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: border-color 0.2s, color 0.2s;
+            user-select: none;
+        }
+
+        .mcs-toggle:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .mcs-toggle input[type="checkbox"] {
+            accent-color: var(--accent);
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .mcs-toggle.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
         }
 
         .btn-theme {
@@ -298,8 +339,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 8px;
+            font-weight: 700;
             z-index: 2;
+            letter-spacing: 0;
         }
 
         .tl-dot.success {
@@ -326,6 +369,12 @@
             border: 2px solid var(--info);
         }
 
+        .tl-dot.mcs-dot {
+            background: var(--purple-dim);
+            color: var(--purple);
+            border: 2px solid var(--purple);
+        }
+
         .tl-dot.neutral {
             background: var(--accent-dim);
             color: var(--accent);
@@ -343,6 +392,24 @@
         .tl-card:hover {
             border-color: var(--text-dim);
         }
+
+        .tl-card.mcs-card { border-left: 3px solid var(--purple); }
+        .tl-card.oc-card  { border-left: 3px solid var(--info); }
+
+        .source-pill {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .source-pill.oc  { background: var(--info-dim);    color: var(--info); }
+        .source-pill.mcs { background: var(--purple-dim);  color: var(--purple); }
+        .source-pill.err { background: var(--error-dim);   color: var(--error); }
 
         html.light .summary-card,
         html.light .tl-card {
@@ -399,6 +466,95 @@
         .badge-info {
             background: var(--info-dim);
             color: var(--info);
+        }
+
+        .badge-purple {
+            background: var(--purple-dim);
+            color: var(--purple);
+        }
+
+        /* ── Legend ── */
+        .legend {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .legend-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .legend-dot.oc  { background: var(--info); }
+        .legend-dot.mcs { background: var(--purple); }
+        .legend-dot.err { background: var(--error); }
+
+        /* ── Chat bubbles ── */
+        .chat-from {
+            font-size: 10px;
+            color: var(--text-dim);
+            margin-top: 8px;
+            margin-bottom: 2px;
+        }
+
+        .chat-bubble {
+            display: inline-block;
+            max-width: 85%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            line-height: 1.5;
+            margin-top: 2px;
+        }
+
+        .chat-bubble.bot {
+            background: var(--purple-dim);
+            border: 1px solid rgba(124,58,237,0.2);
+            color: var(--text);
+            border-radius: 12px 12px 12px 2px;
+        }
+
+        .chat-bubble.customer {
+            background: var(--info-dim);
+            border: 1px solid rgba(37,99,235,0.2);
+            color: var(--text);
+            border-radius: 12px 12px 2px 12px;
+            margin-left: auto;
+            display: block;
+        }
+
+        /* ── Error code box ── */
+        .error-code-box {
+            background: var(--error-dim);
+            border: 1px solid var(--error);
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-top: 8px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--error);
+            line-height: 1.7;
+        }
+
+        .error-code-box .ec-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--error);
+            opacity: 0.7;
+            margin-bottom: 4px;
+            font-weight: 700;
         }
 
         .tl-time {
@@ -765,13 +921,17 @@
             <div class="search-input-wrap">
                 <input type="text" id="guidInput" placeholder="Enter Conversation GUID (e.g. b37f3827-47d6-43b2-a211-158382f9b33a)" />
             </div>
+            <label class="mcs-toggle" id="mcsToggleLabel" title="Include MCS bot telemetry in analysis" style="display:none;">
+                <input type="checkbox" id="includeMcsCheck" onchange="document.getElementById('mcsToggleLabel').classList.toggle('active', this.checked)">
+                <span>MCS Insights</span>
+            </label>
             <button class="btn-search" id="btnSearch" onclick="doSearch()">Analyze</button>
             <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
             <div style="position:relative;flex-shrink:0;margin-left:auto;">
                 <button class="btn-info" id="btnInfo" onclick="toggleVersionPopup(event)" title="About"><i>i</i></button>
                 <div class="version-popup" id="versionPopup">
                     <div class="vp-label">Version</div>
-                    <div class="vp-value">1.0.2</div>
+                    <div class="vp-value">1.0.3a</div>
                 </div>
             </div>
         </div>
@@ -862,29 +1022,218 @@ function toggleTheme() {
 })();
 
 const STAGE_META = {
-  ConversationCreated: { label: 'Conversation Created', icon: '●', status: 'info' },
-  ConversationDetails: { label: 'Conversation Details', icon: '●', status: 'info' },
-  RecordDetails: { label: 'Record Details', icon: '●', status: 'info' },
-  RecordIdentification: { label: 'Record Identification', icon: '●', status: 'dynamic' },
-  UserGroupIdentification: { label: 'User Group Identification', icon: '●', status: 'info' },
-  RouteToQueue: { label: 'Route to Queue', icon: '●', status: 'success' },
-  CSRAssignment: { label: 'Agent Assignment', icon: '●', status: 'dynamic' },
-  CSRAccepted: { label: 'Agent Accepted', icon: '●', status: 'success' },
-  CSREndedConversation: { label: 'Conversation Ended', icon: '●', status: 'neutral' },
-  CSRClosedSession: { label: 'Session Closed', icon: '●', status: 'neutral' },
-  ConversationClosed: { label: 'Conversation Closed', icon: '●', status: 'neutral' }
+  ConversationCreated:                  { label: 'Conversation Created',          status: 'info'    },
+  ConversationDetails:                  { label: 'Conversation Details',           status: 'info'    },
+  RecordDetails:                        { label: 'Record Details',                 status: 'info'    },
+  RecordIdentification:                 { label: 'Record Identification',          status: 'dynamic' },
+  UserGroupIdentification:              { label: 'User Group Identification',      status: 'info'    },
+  RouteToQueue:                         { label: 'Route to Queue',                 status: 'success' },
+  CSRAssignment:                        { label: 'Agent Assignment',               status: 'dynamic' },
+  CSRAccepted:                          { label: 'Agent Accepted',                 status: 'success' },
+  CSREndedConversation:                 { label: 'Conversation Ended',             status: 'neutral' },
+  CSRClosedSession:                     { label: 'Session Closed',                 status: 'neutral' },
+  ConversationClosed:                   { label: 'Conversation Closed',            status: 'neutral' },
+  // Unified query OC stages
+  CopilotAgentAssignedToConversation:   { label: 'Bot Assigned to Conversation',   status: 'info'    },
+  CopilotAgentEscalationToCSR:          { label: 'Bot Escalation to Agent',        status: 'info'    },
+  IntentDetermination:                  { label: 'Intent Determination',           status: 'info'    },
+  WorkItemCreated:                      { label: 'Work Item Created',              status: 'info'    },
+  SessionClosed:                        { label: 'Session Closed',                 status: 'neutral' },
+  CustomerEndedConversation:            { label: 'Customer Ended Conversation',    status: 'neutral' }
 };
+
+const MCS_EVENT_META = {
+  TopicStart:         'Topic Started',
+  TopicEnd:           'Topic Ended',
+  TopicAction:        'Topic Action',
+  ActionExecuted:     'Action Executed',
+  BotMessageReceived: 'Customer Message',
+  BotMessageSend:     'Bot Response',
+  DialogStarted:      'Dialog Started',
+  DialogEnded:        'Dialog Ended',
+  OnEventActivity:    'OC Event Received'
+};
+
+// Returns true for Copilot Studio system/internal topic names that have no
+// user-visible meaning and should not be shown as labels.
+function isSystemTopic(raw) {
+  if (!raw) return true;
+  if (/^MSDYN_/i.test(raw)) return true;
+  const seg = raw.includes('.') ? raw.split('.').pop() : raw;
+  // GUID-like (long all-caps+digits+underscores)
+  if (/^[A-Z0-9_]{16,}$/.test(seg)) return true;
+  // Event-type names that get spuriously used as topic names in the telemetry
+  if (/^(OnEventActivity|TopicAction|TopicStart|TopicEnd|BotMessageSend|BotMessageReceived|ActionExecuted|DialogStarted|DialogEnded|PowerVirtualAgentRoot|OMKHQA)$/i.test(seg)) return true;
+  return false;
+}
+
+// Converts an internal topic schema name to a human-readable label.
+// Returns null for system / GUID topics.
+function cleanTopicName(raw) {
+  if (isSystemTopic(raw)) return null;
+  const seg = raw.includes('.') ? raw.split('.').pop() : raw;
+  // camelCase split: "ConversationStart" → "Conversation Start"
+  let readable = seg.replace(/([a-z])([A-Z])/g, '$1 $2');
+  // underscore/hyphen → space
+  readable = readable.replace(/[_\-]+/g, ' ');
+  // Title-case
+  return readable.replace(/\b\w+/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).trim() || null;
+}
 
 function getStageLabel(stage) {
   return STAGE_META[stage]?.label || stage;
 }
 
+// ── MCS grouping ─────────────────────────────────────────────────────────────
+// Groups consecutive MCS-Bot events into logical segments.
+// A new segment starts ONLY when a TopicStart event fires for a DIFFERENT
+// named (non-system) topic. Null-topic events and same-topic events are always
+// absorbed into the current segment. This produces one row per bot topic
+// instead of one row per raw event.
+
+function groupMcsEvents(allEvents) {
+  const result = [];
+  let i = 0;
+
+  while (i < allEvents.length) {
+    const ev = allEvents[i];
+    if (ev.source !== 'MCS-Bot') {
+      result.push(ev);
+      i++;
+      continue;
+    }
+
+    const groupEvs = [ev];
+    // activeTopic: first real (non-system) topic name seen in this group
+    let activeTopic = isSystemTopic(ev.topic) ? null : ev.topic;
+    i++;
+
+    while (i < allEvents.length && allEvents[i].source === 'MCS-Bot') {
+      const next = allEvents[i];
+      const nextTopic = isSystemTopic(next.topic) ? null : next.topic;
+
+      // Only start a new group on TopicStart of a DIFFERENT named topic
+      if (next.eventName === 'TopicStart' && nextTopic && nextTopic !== activeTopic) {
+        break;
+      }
+
+      groupEvs.push(next);
+      // Adopt the first real topic we see
+      if (nextTopic && !activeTopic) activeTopic = nextTopic;
+      i++;
+    }
+
+    result.push(buildMcsGroup(groupEvs, activeTopic));
+  }
+
+  return result;
+}
+
+function buildMcsGroup(evs, activeTopic) {
+  const cleanRaw   = cleanTopicName(activeTopic);
+  const hasBotSend = evs.some(e => e.eventName === 'BotMessageSend' && e.text);
+  const hasBotRecv = evs.some(e => e.eventName === 'BotMessageReceived' && e.text);
+  const hasOnEvent = evs.some(e => e.eventName === 'OnEventActivity');
+  const hasErrors  = evs.some(e => e.eventName === 'ActionExecuted' && e.text);
+
+  // ── Label ──────────────────────────────────────────────────────────────────
+  let label, badge, description;
+
+  if (cleanRaw) {
+    const lc = cleanRaw.toLowerCase();
+    if (lc.includes('conversation') && lc.includes('start')) {
+      if (hasBotSend) {
+        label = 'Bot Greeted Customer';
+        description = 'Bot sent opening greeting messages to the customer.';
+      } else if (hasOnEvent) {
+        label = 'OC Context Received';
+        badge = 'bridge';
+        description = 'Bot received OC context. Correlation telemetry events linked the OC work item to the MCS conversation.';
+      } else {
+        label = 'Conversation Start';
+        description = 'Bot initialized the conversation start topic.';
+      }
+    } else if (lc.includes('escalat')) {
+      label = 'Escalate to Agent';
+      badge = 'escalating';
+      description = 'Bot triggered escalation to a human agent.';
+    } else if (lc === 'on error' || lc === 'onerror') {
+      label = 'Bot Error Handling';
+      badge = 'error';
+      description = hasErrors
+        ? `Bot error handler fired. Error code: ${evs.find(e => e.eventName === 'ActionExecuted' && e.text)?.text}`
+        : 'Bot entered the On Error topic.';
+    } else {
+      label = cleanRaw;
+      description = `Bot processed the "${cleanRaw}" topic.`;
+    }
+  } else {
+    // No named topic
+    if (hasOnEvent) {
+      label = 'OC Context Received';
+      badge = 'bridge';
+      description = 'Bot received OC conversation context. Correlation bridge events emitted.';
+    } else if (hasBotRecv && hasBotSend) {
+      label = 'Conversation Exchange';
+      description = 'Customer and bot exchanged messages.';
+    } else if (hasBotRecv) {
+      label = 'Customer Message';
+      description = 'Customer sent a message to the bot.';
+    } else if (hasBotSend) {
+      label = 'Bot Response';
+      description = 'Bot responded to the customer.';
+    } else if (hasErrors) {
+      label = 'Bot Error';
+      badge = 'error';
+      description = 'Bot encountered an error.';
+    } else {
+      label = 'Bot Processing';
+      description = 'Bot executed internal processing steps.';
+    }
+  }
+
+  const messages = evs
+    .filter(e => (e.eventName === 'BotMessageSend' || e.eventName === 'BotMessageReceived') && e.text)
+    .map(e => ({ from: e.eventName === 'BotMessageSend' ? 'Bot' : 'Customer', text: e.text }));
+
+  const errors = evs
+    .filter(e => e.eventName === 'ActionExecuted' && e.text)
+    .map(e => ({ code: e.text, details: e.details || '' }));
+
+  const first = evs[0];
+  const last  = evs[evs.length - 1];
+  return {
+    _grouped: true,
+    source: 'MCS-Bot',
+    topic: activeTopic,
+    label,
+    badge,        // 'bridge' | 'escalating' | 'error' | undefined
+    description,
+    timestamp: first.timestamp,
+    lastTimestamp: last.timestamp,
+    eventCount: evs.length,
+    messages,
+    errors,
+    _outcome:  first._outcome,
+    _bridge:   first._bridge,
+    _threadId: first._threadId,
+  };
+}
+
 function getStageStatus(event) {
-  const meta = STAGE_META[event.stage];
+  // MCS-Bot events: error if ActionExecuted with an error code, otherwise info
+  if (event.source === 'MCS-Bot') {
+    if (event.eventName === 'ActionExecuted' && event.text) return 'error';
+    return 'info';
+  }
+
+  // OC events — support both legacy 'stage' field and unified 'eventName' field
+  const stageKey = event.stage || event.eventName || '';
+  const meta = STAGE_META[stageKey];
   if (!meta) return 'neutral';
   if (meta.status !== 'dynamic') return meta.status;
 
-  if (event.stage === 'RecordIdentification') {
+  if (stageKey === 'RecordIdentification') {
     const ri = safeParseJson(event.recordIdentification);
     if (!ri) return 'info';
     const st = ri.RecordIdentificationStatus || '';
@@ -892,7 +1241,7 @@ function getStageStatus(event) {
     return 'warning';
   }
 
-  if (event.stage === 'CSRAssignment') {
+  if (stageKey === 'CSRAssignment') {
     const as = safeParseJson(event.assignmentStatus);
     if (as?.IsAgentAssigned === true) return 'success';
     return 'error';
@@ -919,7 +1268,40 @@ function formatDelta(ms) {
   return ms < 1000 ? `+${ms}ms` : `+${(ms / 1000).toFixed(1)}s`;
 }
 
-function renderSummary(events) {
+const OUTCOME_META = {
+  Escalated:        { label: 'Escalated',         color: 'success' },
+  EscalationFailed: { label: 'Escalation Failed', color: 'error'   },
+  BotError:         { label: 'Bot Error',          color: 'error'   },
+  Deflected:        { label: 'Deflected',          color: 'info'    },
+  Unknown:          { label: 'Unknown',            color: 'neutral' }
+};
+
+function renderMcsSummaryCards(events, mcsContext) {
+  const mcsEvents = events.filter(e => e.source === 'MCS-Bot');
+  const ocm = OUTCOME_META[mcsContext.botOutcome] || OUTCOME_META.Unknown;
+
+  // Topics visited: distinct real (non-system) topic names, cleaned
+  const rawTopics = [...new Set(mcsEvents.map(e => e.topic).filter(t => t && !isSystemTopic(t)))];
+  const topics    = rawTopics.map(cleanTopicName).filter(Boolean);
+
+  // Bot duration: first to last MCS event
+  let botDuration = '—';
+  if (mcsEvents.length >= 2) {
+    const ms = new Date(mcsEvents[mcsEvents.length - 1].timestamp) - new Date(mcsEvents[0].timestamp);
+    botDuration = ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+  }
+
+  const bridgeColor = mcsContext.bridgeStatus === 'found' ? 'success' : 'warning';
+  const bridgeLabel = mcsContext.bridgeStatus === 'found' ? 'Found' : 'Missing';
+
+  return `
+    <div class="summary-card"><div class="label">Bot Outcome</div><div class="value" style="color:var(--${ocm.color})">${ocm.label}</div></div>
+    <div class="summary-card"><div class="label">Topics Visited</div><div class="value">${topics.length || '—'}</div>${topics.length ? `<div class="sub">${topics.length > 5 ? topics.slice(0,5).join(', ') + ` +${topics.length - 5} more` : topics.join(', ')}</div>` : ''}</div>
+    <div class="summary-card"><div class="label">Bot Duration</div><div class="value">${botDuration}</div></div>
+    <div class="summary-card"><div class="label">Bridge</div><div class="value" style="color:var(--${bridgeColor})">${bridgeLabel}</div></div>`;
+}
+
+function renderSummary(events, mcsContext) {
   if (!events.length) return '';
 
   const first = new Date(events[0].timestamp);
@@ -970,22 +1352,47 @@ function renderSummary(events) {
       <div class="summary-card"><div class="label">Assignment Method</div><div class="value">${method}</div></div>
       <div class="summary-card"><div class="label">Status</div><div class="value" style="color: var(--${statusClass})">${finalStatus}</div></div>
       <div class="summary-card"><div class="label">Steps</div><div class="value">${events.length}</div></div>
+      ${mcsContext ? renderMcsSummaryCards(events, mcsContext) : ''}
     </div>`;
 }
 
 function renderTimelineItem(event, index, events) {
+  const isMCS    = event.source === 'MCS-Bot';
+  const isOC     = event.source === 'OC-Routing';
+  const stageKey = event.stage || event.eventName || '';
+
   const status = getStageStatus(event);
-  const label = getStageLabel(event.stage);
-  const time = formatTime(event.timestamp);
+  const label  = isMCS
+    ? (MCS_EVENT_META[event.eventName] || event.eventName || stageKey)
+    : getStageLabel(stageKey);
+  const time   = formatTime(event.timestamp);
 
   let delta = '';
   if (index > 0) {
-    delta = formatDelta(new Date(event.timestamp) - new Date(events[index - 1].timestamp));
+    const prev = events[index - 1];
+    const prevTs = prev.lastTimestamp || prev.timestamp;
+    if (prevTs) delta = formatDelta(new Date(event.timestamp) - new Date(prevTs));
   }
+
+  const dotLabel   = isMCS ? 'MCS' : 'OC';
+
+  const sourcePill = isMCS
+    ? '<span class="source-pill mcs">MCS</span>'
+    : (isOC ? '<span class="source-pill oc">OC</span>' : '');
+
+  const cardClass = isMCS ? 'mcs-card' : (isOC ? 'oc-card' : '');
 
   let badge = '';
 
-  if (event.stage === 'RecordIdentification') {
+  if (isMCS) {
+    const cleanTopic = cleanTopicName(event.topic);
+    if (cleanTopic) {
+      badge = `<span class="tl-stage-badge badge-info">${cleanTopic}</span>`;
+    }
+    if (event.eventName === 'ActionExecuted' && event.text) {
+      badge += ` <span class="tl-stage-badge badge-error">${event.text}</span>`;
+    }
+  } else if (stageKey === 'RecordIdentification') {
     const ri = safeParseJson(event.recordIdentification);
     if (ri) {
       const st = ri.RecordIdentificationStatus || '';
@@ -997,7 +1404,7 @@ function renderTimelineItem(event, index, events) {
         badge = `<span class="tl-stage-badge badge-success">Identified</span>`;
       }
     }
-  } else if (event.stage === 'CSRAssignment') {
+  } else if (stageKey === 'CSRAssignment') {
     const as = safeParseJson(event.assignmentStatus);
     badge = as?.IsAgentAssigned
       ? `<span class="tl-stage-badge badge-success">Assigned</span>`
@@ -1005,7 +1412,7 @@ function renderTimelineItem(event, index, events) {
     if (event.assignmentMethod) {
       badge += ` <span class="tl-stage-badge badge-info">${event.assignmentMethod}</span>`;
     }
-  } else if (event.stage === 'RouteToQueue') {
+  } else if (stageKey === 'RouteToQueue') {
     const res = safeParseJson(event.result);
     if (res?.DisplayName) {
       badge = `<span class="tl-stage-badge badge-success">${res.DisplayName}</span>`;
@@ -1016,7 +1423,29 @@ function renderTimelineItem(event, index, events) {
 
   let bodyHtml = '';
 
-  if (event.description) {
+  if (isMCS) {
+    // MCS body: show message text / error code and connection details
+    if (event.text) {
+      const isErr = event.eventName === 'ActionExecuted';
+      bodyHtml += `
+        <div class="tl-detail-group">
+          <div class="tl-detail-label">${isErr ? 'Error' : 'Message'}</div>
+          <div class="tl-kv-grid">
+            <span class="k">${isErr ? 'Code' : 'Text'}</span>
+            <span class="v ${isErr ? 'error' : ''}">${event.text}</span>
+          </div>
+        </div>`;
+    }
+    if (event.details) {
+      bodyHtml += `
+        <div class="tl-detail-group">
+          <div class="tl-detail-label">Details</div>
+          <div class="tl-desc" style="font-family:var(--mono);font-size:11px;padding:6px 0">${event.details}</div>
+        </div>`;
+    }
+  }
+
+  if (!isMCS && event.description) {
     bodyHtml += `<div class="tl-desc">${event.description}</div>`;
   }
 
@@ -1112,7 +1541,7 @@ function renderTimelineItem(event, index, events) {
     }
   }
 
-  if (event.result && event.stage === 'RouteToQueue') {
+  if (event.result && stageKey === 'RouteToQueue') {
     const res = safeParseJson(event.result);
     if (res) {
       bodyHtml += `
@@ -1130,11 +1559,87 @@ function renderTimelineItem(event, index, events) {
 
   return `
     <div class="tl-item${hasBody ? '' : ' no-expand'}" style="animation-delay: ${index * 0.06}s" ${hasBody ? 'onclick="this.classList.toggle(\'open\')"' : ''}>
-      <div class="tl-dot ${status}">●</div>
-      <div class="tl-card">
+      <div class="tl-dot ${status}">${dotLabel}</div>
+      <div class="tl-card ${cardClass}">
         <div class="tl-header">
           <div class="tl-header-left">
-            <span class="tl-stage">${label}</span>${badge}
+            ${sourcePill}<span class="tl-stage">${label}</span>${badge}
+          </div>
+          <span class="tl-time">${time}</span>
+          ${delta ? `<span class="tl-delta">${delta}</span>` : ''}
+          ${hasBody ? '<span class="tl-chevron">▶</span>' : ''}
+        </div>
+        ${hasBody ? `<div class="tl-body">${bodyHtml}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function renderMcsGroupItem(group, index, allItems) {
+  const hasErrors  = group.errors.length > 0;
+  const dotCls     = hasErrors ? 'error' : 'mcs-dot';
+  const dotLbl     = hasErrors ? 'ERR' : 'MCS';
+  const sourcePill = hasErrors
+    ? '<span class="source-pill err">MCS</span>'
+    : '<span class="source-pill mcs">MCS</span>';
+
+  // Derive a badge from the group's semantic type
+  let badgeHtml = '';
+  if (hasErrors) {
+    badgeHtml = `<span class="tl-stage-badge badge-error">${group.errors.length} Error${group.errors.length > 1 ? 's' : ''}</span>`;
+  } else if (group.badge === 'bridge') {
+    badgeHtml = `<span class="tl-stage-badge badge-purple">Correlation Bridge</span>`;
+  } else if (group.badge === 'escalating') {
+    badgeHtml = `<span class="tl-stage-badge badge-warning">Escalating</span>`;
+  }
+  // Show clean topic name as a secondary badge only if it differs from the label
+  const cleanTopic = cleanTopicName(group.topic);
+  if (cleanTopic && cleanTopic.toLowerCase() !== group.label.toLowerCase() && !hasErrors && group.badge !== 'bridge') {
+    badgeHtml += ` <span class="tl-stage-badge badge-info">${cleanTopic}</span>`;
+  }
+
+  const time = formatTime(group.timestamp);
+  let delta = '';
+  if (index > 0) {
+    const prev = allItems[index - 1];
+    const prevTs = prev.lastTimestamp || prev.timestamp;
+    if (prevTs) delta = formatDelta(new Date(group.timestamp) - new Date(prevTs));
+  }
+
+  let bodyHtml = '';
+
+  if (group.description) {
+    bodyHtml += `<div class="tl-desc">${group.description}</div>`;
+  }
+
+  if (group.messages.length > 0) {
+    bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Messages</div>`;
+    group.messages.forEach(m => {
+      bodyHtml += `<div class="chat-from">${m.from}</div><div class="chat-bubble ${m.from === 'Bot' ? 'bot' : 'customer'}">${m.text}</div>`;
+    });
+    bodyHtml += `</div>`;
+  }
+
+  if (hasErrors) {
+    bodyHtml += `<div class="tl-detail-group"><div class="tl-detail-label">Errors (${group.errors.length})</div>`;
+    group.errors.forEach(err => {
+      bodyHtml += `<div class="error-code-box">
+        <div class="ec-label">Bot Error — Action Execution Failed</div>
+        Error code: ${err.code}
+        ${err.details ? `<br><span style="opacity:0.75">${err.details}</span>` : ''}
+      </div>`;
+    });
+    bodyHtml += `</div>`;
+  }
+
+  const hasBody = bodyHtml.length > 0;
+
+  return `
+    <div class="tl-item${hasBody ? '' : ' no-expand'}" style="animation-delay:${index * 0.05}s" ${hasBody ? 'onclick="this.classList.toggle(\'open\')"' : ''}>
+      <div class="tl-dot ${dotCls}">${dotLbl}</div>
+      <div class="tl-card mcs-card">
+        <div class="tl-header">
+          <div class="tl-header-left">
+            ${sourcePill}<span class="tl-stage">${group.label}</span>${badgeHtml}
           </div>
           <span class="tl-time">${time}</span>
           ${delta ? `<span class="tl-delta">${delta}</span>` : ''}
@@ -1146,28 +1651,62 @@ function renderTimelineItem(event, index, events) {
 }
 
 function renderTimeline(events) {
-  return `<div class="timeline">${events.map((e, i) => renderTimelineItem(e, i, events)).join('')}</div>`;
+  const hasMCS = events.some(e => e.source === 'MCS-Bot');
+  const items  = hasMCS ? groupMcsEvents(events) : events;
+
+  let html = '';
+  if (hasMCS) {
+    html += `<div class="legend">
+      <div class="legend-item"><div class="legend-dot oc"></div> OC Routing</div>
+      <div class="legend-item"><div class="legend-dot mcs"></div> MCS Bot</div>
+      <div style="margin-left:auto;font-size:11px;color:var(--text-dim)">Click any row to expand</div>
+    </div>`;
+  }
+
+  html += `<div class="timeline">`;
+  items.forEach((item, idx) => {
+    if (item._grouped) {
+      html += renderMcsGroupItem(item, idx, items);
+    } else {
+      html += renderTimelineItem(item, idx, items);
+    }
+  });
+  html += `</div>`;
+  return html;
 }
 
 function render(events) {
-  document.getElementById('mainContent').innerHTML = renderSummary(events) + renderTimeline(events);
+  // _outcome/_bridge/_threadId are carried on every row when MCS mode was used.
+  // Extract them once from the first row that has them.
+  const metaRow = events.find(e => e._outcome);
+  const mcsContext = metaRow ? {
+    botOutcome:   metaRow._outcome,
+    bridgeStatus: metaRow._bridge  || 'missing',
+    mcsThreadId:  metaRow._threadId || ''
+  } : null;
+
+  document.getElementById('mainContent').innerHTML =
+    renderSummary(events, mcsContext) +
+    renderTimeline(events);
 }
 
 function getXrm() {
   return (typeof Xrm !== 'undefined') ? Xrm : (window.parent?.Xrm ? window.parent.Xrm : null);
 }
 
-async function triggerCustomApi(guid) {
+async function triggerCustomApi(guid, includeMCS) {
   const xrm = getXrm();
   const req = {
     ConversationId: guid,
+    IncludeMCS: !!includeMCS,
     getMetadata: function () {
       return {
         boundParameter: null,
         operationName: CUSTOM_API_NAME,
         operationType: 0,
         parameterTypes: {
-          ConversationId: { typeName: "Edm.String", structuralProperty: 1 }
+          ConversationId: { typeName: "Edm.String", structuralProperty: 1 },
+          IncludeMCS: { typeName: "Edm.Boolean", structuralProperty: 1 }
         }
       };
     }
@@ -1210,6 +1749,8 @@ async function doSearch() {
     return;
   }
 
+  const includeMCS = document.getElementById('includeMcsCheck')?.checked ?? false;
+
   main.innerHTML = '<div class="loading-state"><div class="spinner"></div>Triggering diagnostics flow...</div>';
   btn.disabled = true;
 
@@ -1220,8 +1761,11 @@ async function doSearch() {
       await new Promise(r => setTimeout(r, 600));
       events = SAMPLE_DATA[guid] || [];
     } else {
-      await triggerCustomApi(guid);
-      main.innerHTML = '<div class="loading-state"><div class="spinner"></div>Waiting for routing data...</div>';
+      await triggerCustomApi(guid, includeMCS);
+      const waitMsg = includeMCS
+        ? 'Waiting for routing &amp; MCS data...'
+        : 'Waiting for routing data...';
+      main.innerHTML = `<div class="loading-state"><div class="spinner"></div>${waitMsg}</div>`;
       events = await pollForResult(guid);
 
       if (events === null) {
