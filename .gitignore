@@ -3,3 +3,15 @@ node_modules/
 *.log
 .DS_Store
 Thumbs.db
+
+# .NET build outputs
+[Bb]in/
+[Oo]bj/
+*.dll
+*.pdb
+*.cache
+
+# Scratch / temp files
+temp_check.js
+fix_queue*.js
+fix_queue*.py

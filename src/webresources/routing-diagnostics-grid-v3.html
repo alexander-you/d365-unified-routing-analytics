@@ -1,0 +1,3495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Routing Diagnostics Summary</title>
+
+    <script src="../ClientGlobalContext.js.aspx" type="text/javascript"></script>
+    <script src="https://unpkg.com/botframework-webchat@4.18.0/dist/webchat.js"></script>
+    <script src="https://unpkg.com/@azure/msal-browser@4.13.1/lib/msal-browser.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "@microsoft/agents-copilotstudio-client": "https://unpkg.com/@microsoft/agents-copilotstudio-client@1.0.15/dist/src/browser.mjs"
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg: #f4f5f7;
+            --surface: #ffffff;
+            --surface-hover: #f0f1f4;
+            --border: #d8dbe3;
+            --text: #1a1d27;
+            --text-muted: #5c6078;
+            --text-dim: #8b8fa3;
+            --accent: #4a6cf7;
+            --accent-dim: rgba(74,108,247,0.10);
+            --success: #16a34a;
+            --success-dim: rgba(22,163,74,0.10);
+            --warning: #ca8a04;
+            --warning-dim: rgba(202,138,4,0.10);
+            --error: #dc2626;
+            --error-dim: rgba(220,38,38,0.10);
+            --info: #2563eb;
+            --info-dim: rgba(37,99,235,0.10);
+            --purple: #7c3aed;
+            --purple-dim: rgba(124,58,237,0.10);
+            --radius: 8px;
+            --font: 'Segoe UI', -apple-system, sans-serif;
+            --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; }
+        body.panel-open { overflow: hidden; }
+
+        /* ── Header ── */
+        .header { position: sticky; top: 0; z-index: 200; background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: margin-right 0.35s cubic-bezier(0.16,1,0.3,1); }
+        .header .logo { font-size: 14px; font-weight: 700; letter-spacing: 0.5px; color: var(--accent); white-space: nowrap; }
+        .header .version { font-size: 10px; color: var(--text-dim); margin-left: auto; }
+
+        /* ── Filters ── */
+        .filter-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; transition: margin-right 0.35s cubic-bezier(0.16,1,0.3,1); }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filter-group label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+        .filter-group select, .filter-group input[type="date"] { font-family: var(--font); font-size: 13px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); min-width: 160px; cursor: pointer; }
+        .filter-group select:focus, .filter-group input[type="date"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+        .date-inputs { display: none; margin-top: 6px; }
+        .date-inputs.visible { display: flex; }
+        .date-range-row { display: flex; gap: 8px; align-items: center; }
+        .date-range-row span { font-size: 12px; color: var(--text-dim); }
+
+        .btn-retrieve { padding: 9px 24px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+        .btn-retrieve:hover { background: #3a5ce5; }
+        .btn-retrieve:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-subtle { padding: 6px 12px; background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius); font-family: var(--font); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+        .btn-subtle:hover { background: var(--surface-hover); color: var(--text); border-color: var(--text-dim); box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
+
+        .filter-bar-right { margin-left: auto; display: flex; align-items: flex-end; gap: 10px; }
+        .btn-settings { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-size: 17px; color: var(--text-muted); transition: color 0.15s, border-color 0.15s, background 0.15s; }
+        .btn-settings:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+
+        /* ── Settings panel ── */
+        .settings-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.35); z-index: 600; opacity: 0; transition: opacity 0.25s ease; }
+        .settings-overlay.open { display: block; opacity: 1; }
+        .settings-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); background: var(--surface); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); z-index: 610; width: 520px; max-width: 90vw; max-height: 85vh; overflow-y: auto; opacity: 0; pointer-events: none; visibility: hidden; transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), opacity 0.25s ease, visibility 0.25s; }
+        .settings-overlay.open + .settings-panel, .settings-panel.open { opacity: 1; pointer-events: auto; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+        .settings-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .settings-header h2 { font-size: 16px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .settings-body { padding: 20px 24px; }
+        .setting-item { padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; }
+        .setting-item:last-child { margin-bottom: 0; }
+        .setting-item-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+        .setting-item-header .setting-name { font-size: 13px; font-weight: 700; color: var(--text); }
+        .setting-desc { font-size: 12px; color: var(--text-muted); line-height: 1.55; }
+        .setting-desc strong { color: var(--text); font-weight: 600; }
+        .setting-note { font-size: 11px; color: var(--text-dim); margin-top: 8px; font-style: italic; }
+        .settings-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .settings-footer .footer-note { font-size: 11px; color: var(--text-dim); }
+        .settings-footer .btn-save { padding: 8px 20px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+        .settings-footer .btn-save:hover { background: #3a5ce5; }
+        .settings-footer .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Toggle switch ── */
+        .toggle { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--border); border-radius: 12px; transition: background 0.2s; }
+        .toggle .slider::before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+        .toggle input:checked + .slider { background: var(--accent); }
+        .toggle input:checked + .slider::before { transform: translateX(18px); }
+
+        /* ── Stats bar ── */
+        .stats-bar { padding: 12px 24px; display: flex; align-items: center; gap: 20px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border); background: var(--surface); }
+        .stats-bar .stat-val { font-weight: 700; color: var(--text); }
+        .stats-bar .stat-label { margin-left: 4px; }
+
+        /* ── Error bar ── */
+        .error-bar { padding: 12px 24px; background: var(--error-dim); color: var(--error); font-size: 13px; font-weight: 500; display: none; border-bottom: 1px solid var(--error); }
+        .error-bar.visible { display: flex; align-items: center; gap: 8px; }
+        .error-bar .dismiss { cursor: pointer; margin-left: auto; font-size: 16px; opacity: 0.6; }
+        .error-bar .dismiss:hover { opacity: 1; }
+
+        .info-bar { padding: 12px 24px; background: var(--info-dim); color: var(--info); font-size: 13px; font-weight: 500; display: none; border-bottom: 1px solid var(--info); }
+        .info-bar.visible { display: flex; align-items: center; gap: 8px; }
+        .info-bar .dismiss { cursor: pointer; margin-left: auto; font-size: 16px; opacity: 0.6; }
+        .info-bar .dismiss:hover { opacity: 1; }
+        .info-bar .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--info); border-top-color: transparent; border-radius: 50%; animation: infoSpin 0.8s linear infinite; }
+        @keyframes infoSpin { to { transform: rotate(360deg); } }
+
+        /* ── Grid ── */
+        .grid-container { padding: 0 24px 24px; }
+        .grid-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .grid-table thead th { position: sticky; top: 53px; z-index: 100; background: var(--surface); padding: 10px 14px; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; user-select: none; cursor: pointer; }
+        .grid-table thead th:hover { color: var(--accent); }
+        .grid-table thead th .sort-icon { font-size: 9px; margin-left: 4px; opacity: 0.4; }
+        .grid-table thead th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+        .grid-table tbody tr { cursor: pointer; transition: background 0.1s; animation: fadeInRow 0.25s ease both; }
+        .grid-table tbody tr:hover { background: var(--surface-hover); }
+        .grid-table tbody tr.selected { background: var(--accent-dim); }
+        .grid-table tbody td { padding: 11px 14px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        .grid-table tbody td.item-name { color: var(--accent); font-weight: 500; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .grid-table tbody td.mono { font-family: var(--mono); font-size: 12px; }
+        .grid-table tbody td .expand-arrow { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; font-size: 10px; color: var(--text-dim); transition: color 0.15s, background 0.15s, transform 0.2s; }
+        .grid-table tbody tr:hover .expand-arrow { color: var(--accent); background: var(--accent-dim); }
+        .grid-table tbody tr.selected .expand-arrow { color: var(--accent); transform: rotate(180deg); }
+
+        /* ── Grid row Copilot icon ── */
+        .grid-row-actions { display: inline-flex; align-items: center; gap: 4px; }
+        .grid-copilot-btn {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 30px; height: 30px;
+          border: 1px solid var(--border); background: var(--surface);
+          border-radius: 8px; cursor: pointer;
+          opacity: 0.72; transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+          padding: 0; flex-shrink: 0;
+        }
+        .grid-table tbody tr:hover .grid-copilot-btn { opacity: 0.88; }
+        .grid-copilot-btn:hover { opacity: 1 !important; background: var(--accent-dim); border-color: rgba(124,58,237,0.35); box-shadow: 0 1px 3px rgba(124,58,237,0.10); }
+        .grid-copilot-btn img {
+          width: 20px; height: 20px; display: block; object-fit: contain;
+        }
+
+        /* ── Status pills ── */
+        .status-pill { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+        .status-pill.Completed, .status-pill.completed { background: var(--success-dim); color: var(--success); }
+        .status-pill.In-Progress, .status-pill.in-progress { background: var(--warning-dim); color: var(--warning); }
+        .status-pill.Failed, .status-pill.failed { background: var(--error-dim); color: var(--error); }
+
+        /* ── Side panel ── */
+        .panel-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.35); z-index: 300; opacity: 0; transition: opacity 0.25s ease; }
+        .panel-overlay.open { display: block; opacity: 1; }
+        .side-panel { position: fixed; top: 0; right: 0; width: 640px; height: 100vh; background: var(--surface); border-left: 1px solid var(--border); box-shadow: -8px 0 40px rgba(0,0,0,0.15); z-index: 450; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), right 0.35s cubic-bezier(0.16,1,0.3,1); display: flex; flex-direction: column; overflow: hidden; }
+        .side-panel.open { transform: translateX(0); }
+        .side-panel.copilot-offset { right: 420px; }
+        .side-panel.resizing, .copilot-panel.resizing { transition: none !important; }
+        .resize-handle { position: absolute; top: 0; left: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 10; }
+        .resize-handle::after { content: ''; position: absolute; top: 0; left: 2px; width: 3px; height: 100%; background: transparent; transition: background 0.15s; border-radius: 2px; }
+        .resize-handle:hover::after, .resize-handle.active::after { background: var(--accent); opacity: 0.5; }
+
+        /* ── Panel hero ── */
+        .panel-hero { flex-shrink: 0; padding: 20px 24px 16px; background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 60%); border-bottom: 1px solid var(--border); }
+        .panel-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+        .panel-hero .panel-overline { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--accent); margin-bottom: 4px; }
+        .panel-hero .panel-title { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.35; }
+        .panel-hero .panel-status-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+        /* ── V3.0.4: Ask Copilot sits on the status row, right of the badge ── */
+
+        /* Primary: top "Ask Copilot" — inline pill on the status row */
+        .ask-copilot-btn {
+          display: inline-flex; align-items: center; gap: 8px;
+          height: 34px;
+          padding: 0 15px 0 9px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--text);
+          font-family: var(--font, inherit);
+          font-size: 13px; font-weight: 600; line-height: 1;
+          border-radius: 999px;
+          cursor: pointer;
+          transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+          white-space: nowrap;
+        }
+        .ask-copilot-btn:hover {
+          background: linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(74,108,247,0.06) 100%);
+          border-color: rgba(124,58,237,0.50);
+          color: #6d28d9;
+          box-shadow: 0 2px 6px rgba(124,58,237,0.12);
+        }
+        .ask-copilot-btn:active { transform: translateY(1px); }
+        .ask-copilot-btn .ac-icon { width: 24px; height: 24px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+        .ask-copilot-btn .ac-icon img { width: 100%; height: 100%; display: block; object-fit: contain; }
+
+        /* Contextual: card-body "Explain with Copilot" — inside card body, not header */
+        .tl-ask-copilot {
+          display: inline-flex; align-items: center; gap: 7px;
+          height: 30px;
+          padding: 0 13px 0 8px;
+          margin-top: 10px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--text-muted, var(--text-dim));
+          font-family: var(--font, inherit);
+          font-size: 11.5px; font-weight: 600; line-height: 1;
+          border-radius: 999px;
+          cursor: pointer;
+          transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+          white-space: nowrap;
+        }
+        .tl-ask-copilot:hover {
+          background: linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(74,108,247,0.06) 100%);
+          border-color: rgba(124,58,237,0.45);
+          color: #6d28d9;
+          box-shadow: 0 1px 4px rgba(124,58,237,0.10);
+        }
+        .tl-ask-copilot .ac-icon { width: 20px; height: 20px; flex-shrink: 0; display: inline-flex; align-items: center; }
+        .tl-ask-copilot .ac-icon img { width: 100%; height: 100%; display: block; object-fit: contain; }
+
+        /* Utility: "Expand all details" — same design system as Copilot pills */
+        .btn-utility {
+          display: inline-flex; align-items: center; gap: 7px;
+          height: 30px;
+          padding: 0 13px 0 10px;
+          background: var(--surface);
+          color: var(--text-dim);
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          font-family: var(--font, inherit);
+          font-size: 11.5px; font-weight: 600; line-height: 1;
+          cursor: pointer;
+          transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+          white-space: nowrap;
+        }
+        .btn-utility:hover {
+          background: linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(74,108,247,0.04) 100%);
+          border-color: rgba(124,58,237,0.40);
+          color: var(--text);
+          box-shadow: 0 1px 4px rgba(124,58,237,0.08);
+        }
+        .btn-utility .icon { font-size: 11px; line-height: 1; display: inline-block; }
+
+        .panel-close { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: none; background: var(--surface); color: var(--text-dim); font-size: 16px; cursor: pointer; border-radius: 8px; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: color 0.15s, background 0.15s; }
+        .panel-close:hover { background: var(--surface-hover); color: var(--text); }
+
+        /* ── Progress tracker ── */
+        .progress-tracker { display: flex; align-items: flex-start; padding: 16px 24px 20px; gap: 0; flex-shrink: 0; overflow-x: auto; border-bottom: 1px solid var(--border); background: var(--surface); }
+        .pt-step { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0; position: relative; }
+        .pt-step .pt-connector { position: absolute; top: 15px; left: calc(50% + 16px); right: calc(-50% + 16px); height: 2px; background: var(--border); z-index: 0; }
+        .pt-step .pt-connector.done { background: var(--success); }
+        .pt-step:last-child .pt-connector { display: none; }
+        .pt-node { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; z-index: 1; flex-shrink: 0; }
+        .pt-node.completed { background: var(--success-dim); color: var(--success); border: 2px solid var(--success); }
+        .pt-node.failed { background: var(--error-dim); color: var(--error); border: 2px solid var(--error); }
+        .pt-node.in-progress { background: var(--warning-dim); color: var(--warning); border: 2px solid var(--warning); animation: pulseNode 2s ease infinite; }
+        .pt-node.pending { background: var(--bg); color: var(--text-dim); border: 2px solid var(--border); }
+        @keyframes pulseNode { 0%, 100% { box-shadow: 0 0 0 0 rgba(251,191,36,0.3); } 50% { box-shadow: 0 0 0 6px rgba(251,191,36,0); } }
+        .pt-label { margin-top: 6px; font-size: 10px; font-weight: 600; color: var(--text-muted); text-align: center; line-height: 1.2; max-width: 72px; word-wrap: break-word; }
+        .pt-step.active .pt-label { color: var(--text); font-weight: 700; }
+        .panel-body { flex: 1; overflow-y: auto; padding: 0; }
+
+        /* ── KPI row ── */
+        .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+        .kpi-card { background: var(--surface); padding: 14px 16px; text-align: center; }
+        .kpi-card .kpi-val { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1; }
+        .kpi-card .kpi-val.success { color: var(--success); }
+        .kpi-card .kpi-val.error { color: var(--error); }
+        .kpi-card .kpi-val.warning { color: var(--warning); }
+        .kpi-card .kpi-val.accent { color: var(--accent); }
+        .kpi-card .kpi-label { font-size: 10px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.3px; margin-top: 4px; }
+
+        /* ── Detail sections ── */
+        .detail-section { padding: 18px 24px; border-bottom: 1px solid var(--border); }
+        .detail-section-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        .detail-section-title .ds-icon { font-size: 14px; }
+        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .detail-item { padding: 10px 14px; background: var(--bg); border-radius: var(--radius); border: 1px solid var(--border); }
+        .detail-item .di-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+        .detail-item .di-value { font-size: 13px; font-weight: 600; color: var(--text); margin-top: 3px; word-break: break-all; }
+        .detail-item .di-value.link { color: var(--accent); }
+        .detail-item .di-value.mono { font-family: var(--mono); font-size: 11px; }
+        .detail-item.full { grid-column: 1 / -1; }
+
+        /* ── Story Timeline (V2) ── */
+        .story-summary { padding: 16px 24px; background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 60%); border-bottom: 1px solid var(--border); font-size: 13px; line-height: 1.7; color: var(--text-muted); }
+        .story-summary strong { color: var(--text); font-weight: 600; }
+
+        .hero-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+        .hero-fact { background: var(--surface); padding: 8px 16px; }
+        .hero-fact .hf-label { font-size: 10px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.3px; }
+        .hero-fact .hf-value { font-size: 12px; font-weight: 600; color: var(--text); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+        .hero-fact .hf-value.success { color: var(--success); }
+        .hero-fact .hf-value.warning { color: var(--warning); }
+        .hero-fact .hf-value.error { color: var(--error); }
+        .hero-fact .hf-value.accent { color: var(--accent); }
+        .hero-fact.full { grid-column: 1 / -1; }
+
+        .story-timeline { position: relative; padding: 16px 24px 24px; padding-left: 52px; }
+        .story-timeline::before { content: ''; position: absolute; left: 35px; top: 16px; bottom: 24px; width: 2px; background: var(--border); }
+
+        .tl-item { position: relative; margin-bottom: 6px; opacity: 0; transform: translateY(10px); animation: stageIn 0.35s ease forwards; }
+        @keyframes stageIn { to { opacity: 1; transform: translateY(0); } }
+
+        .tl-dot { position: absolute; left: -32px; top: 14px; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; z-index: 2; }
+        .tl-dot.success { background: var(--success-dim); color: var(--success); border: 2px solid var(--success); }
+        .tl-dot.warning { background: var(--warning-dim); color: var(--warning); border: 2px solid var(--warning); }
+        .tl-dot.error { background: var(--error-dim); color: var(--error); border: 2px solid var(--error); }
+        .tl-dot.info { background: var(--accent-dim); color: var(--accent); border: 2px solid var(--accent); }
+        .tl-dot.in-progress { background: var(--warning-dim); color: var(--warning); border: 2px solid var(--warning); animation: pulseNode 2s ease infinite; }
+
+        .tl-card { position: relative; z-index: 5; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: border-color 0.2s, box-shadow 0.2s; }
+        .tl-card:hover { border-color: var(--text-dim); }
+        .tl-card.tl-success { border-left: 3px solid var(--success); }
+        .tl-card.tl-warning { border-left: 3px solid var(--warning); }
+        .tl-card.tl-error { border-left: 3px solid var(--error); }
+        .tl-card.tl-info { border-left: 3px solid var(--accent); }
+
+        .tl-header { position: relative; z-index: 10; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; gap: 8px; }
+        .tl-header-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; flex-wrap: wrap; }
+        .tl-stage { font-size: 13px; font-weight: 700; color: var(--text); }
+        .tl-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+        .tl-result { font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 6px; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.4px; background: #eef0f3; color: #4b5563; border: 1px solid #d1d5db; flex-shrink: 0; }
+        .tl-result.r-success { background: #dcfce7; color: #166534; border-color: #86efac; }
+        .tl-result.r-warning { background: #fef9c3; color: #9a6700; border-color: #fde047; }
+        .tl-result.r-error { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+        .tl-meaning { font-size: 11px; font-weight: 600; color: #374151; padding: 4px 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; display: inline-block; vertical-align: middle; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+        .tl-header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .tl-time { font-size: 11px; font-family: var(--mono); color: var(--text-dim); white-space: nowrap; }
+        .tl-delta { font-size: 10px; color: var(--text-muted); white-space: nowrap; padding: 1px 6px; background: var(--surface-hover); border-radius: 6px; }
+        .tl-chevron { font-size: 10px; color: var(--text-dim); transition: transform 0.2s; }
+        .tl-item.open .tl-chevron { transform: rotate(90deg); }
+
+        .tl-body { display: none; padding: 0 16px 14px; border-top: 1px solid var(--border); }
+        .tl-item.open .tl-body { display: block; animation: stageIn 0.2s ease; }
+        .tl-desc { font-size: 12.5px; color: var(--text-muted); padding: 12px 0 4px; line-height: 1.65; }
+        .tl-desc strong { color: var(--text); }
+        .tl-evidence-toggle { font-family: var(--font); background: transparent; border: none; font-size: 11px; color: var(--accent); cursor: pointer; padding: 6px 0; display: flex; align-items: center; gap: 4px; font-weight: 600; user-select: none; }
+        .tl-evidence-toggle:hover { text-decoration: underline; }
+        .tl-evidence { display: none; margin-top: 8px; }
+        .tl-evidence.open { display: block; }
+        .tl-evidence-inner { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+        /* Reuse existing formatting styles */
+        .stage-timeline { position: relative; padding-left: 28px; }
+        .stage-timeline::before { content: ''; position: absolute; left: 13px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+        .st-item { position: relative; margin-bottom: 0; opacity: 0; transform: translateY(8px); animation: stageIn 0.35s ease forwards; }
+        .st-node { position: absolute; left: -28px; top: 16px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 1; }
+        .st-node.completed { background: var(--success-dim); color: var(--success); border: 2px solid var(--success); }
+        .st-node.failed { background: var(--error-dim); color: var(--error); border: 2px solid var(--error); }
+        .st-node.in-progress { background: var(--warning-dim); color: var(--warning); border: 2px solid var(--warning); animation: pulseNode 2s ease infinite; }
+        .st-node.pending { background: var(--bg); color: var(--text-dim); border: 2px solid var(--border); }
+        .st-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; transition: border-color 0.15s, box-shadow 0.15s; }
+        .st-card.expandable .st-card-header { cursor: pointer; }
+        .st-card.expandable:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(74,108,247,0.08); }
+        .st-card-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .st-card-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .st-card .st-name { font-size: 13px; font-weight: 700; color: var(--text); }
+        .st-card .st-output-pill { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: var(--accent-dim); color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+        .st-card .st-output-pill.error { background: var(--error-dim); color: var(--error); }
+        .st-card-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .st-card .st-time { font-size: 11px; font-family: var(--mono); color: var(--text-dim); }
+        .st-card .st-dur { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 8px; background: var(--surface-hover); color: var(--text-muted); }
+        .st-chevron { font-size: 10px; color: var(--text-dim); transition: transform 0.2s; }
+        .st-card.open .st-chevron { transform: rotate(90deg); }
+        .st-card-body { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); user-select: text; }
+        .st-card.open .st-card-body { display: block; animation: stageIn 0.2s ease; }
+        .st-kv { display: grid; grid-template-columns: 160px 1fr; gap: 8px 12px; }
+        .st-kv .k { font-size: 11px; font-weight: 600; color: var(--text); }
+        .st-kv .v { font-size: 12px; color: var(--text); word-break: break-word; line-height: 1.6; }
+        .st-kv .v .empty { color: var(--text-dim); font-style: italic; }
+        .st-kv .v .json-sub { margin: 4px 0; padding: 10px 14px; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 12px; }
+        .st-kv .v .json-sub .jk { font-weight: 600; color: var(--text); }
+        .st-kv .v .json-sub .jv { color: var(--text); word-break: break-word; }
+        .st-kv .v .json-sub .jv .empty { color: var(--text-dim); font-style: italic; }
+        .st-kv .kv-block { grid-column: 1 / -1; }
+        .st-kv .kv-block > .k { margin-bottom: 4px; }
+        .json-sub .jkv-block { grid-column: 1 / -1; }
+        .json-sub .jkv-block > .jk { margin-bottom: 4px; }
+        .tag-list { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0; }
+        .tag { display: inline-block; padding: 2px 8px; background: var(--accent-dim); color: var(--accent); border-radius: 4px; font-size: 11px; font-family: var(--mono); line-height: 1.5; }
+        .xml-block { margin: 4px 0; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; font-family: var(--mono); font-size: 11px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 300px; overflow-y: auto; }
+        .xml-section { margin-bottom: 8px; }
+        .xml-section:last-child { margin-bottom: 0; }
+        .xml-section > .xml-label { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+        .status-ind { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 12px; padding: 3px 10px; border-radius: 12px; }
+        .status-ind.si-success { background: var(--success-dim); color: var(--success); }
+        .status-ind.si-error { background: var(--error-dim); color: var(--error); }
+        .status-ind.si-warning { background: var(--warning-dim); color: var(--warning); }
+        .status-ind.si-muted { background: var(--bg); color: var(--text-dim); }
+        .st-sub-header { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border); }
+        .st-sub-header:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+
+        /* ── Copilot panel ── */
+        .copilot-btn { width: 38px; height: 38px; display: none; align-items: center; justify-content: center; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-size: 17px; color: var(--text-muted); transition: color 0.15s, border-color 0.15s, background 0.15s; }
+        .copilot-btn.visible { display: flex; }
+        .copilot-btn:hover { color: var(--purple); border-color: var(--purple); background: var(--purple-dim); }
+        .copilot-btn.active { color: var(--purple); border-color: var(--purple); background: var(--purple-dim); }
+
+        .app-layout { transition: margin-right 0.35s cubic-bezier(0.16,1,0.3,1); }
+        .app-layout.copilot-active { margin-right: 420px; }
+
+        .copilot-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 420px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; z-index: 400; transform: translateX(100%); opacity: 0; transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), opacity 0.25s ease; }
+        .copilot-panel.open { transform: translateX(0); opacity: 1; }
+        .copilot-panel-header { flex-shrink: 0; padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, var(--purple-dim) 0%, transparent 60%); }
+        .copilot-panel-header .cp-title { font-size: 13px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .copilot-panel-header .cp-title .cp-icon { height: 20px; width: auto; vertical-align: middle; }
+        .copilot-panel-header .cp-actions { display: flex; align-items: center; gap: 8px; }
+        .copilot-panel-header .cp-actions button { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: var(--bg); color: var(--text-muted); font-size: 16px; cursor: pointer; border-radius: 8px; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+        .copilot-panel-header .cp-actions button:hover { background: var(--surface-hover); color: var(--text); border-color: var(--text-dim); box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+        .copilot-panel-header .cp-actions button[title='New conversation']:hover { color: var(--purple); border-color: var(--purple-dim); }
+        .copilot-panel-header .cp-actions button[title='New conversation'] i.icon-rotate-cw { font-style: normal; transition: transform 0.3s ease; display: inline-block; line-height: 1; }
+        .copilot-panel-header .cp-actions button[title='New conversation']:hover i.icon-rotate-cw { transform: rotate(180deg); }
+        .copilot-btn .cp-logo { height: 18px; width: auto; }
+        .copilot-panel-header .cp-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 6px; background: var(--purple-dim); color: var(--purple); text-transform: uppercase; letter-spacing: 0.3px; }
+        .copilot-panel-body { flex: 1; overflow: hidden; min-height: 0; position: relative; }
+        .copilot-panel-body #copilotWebChat { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        .copilot-panel-body #copilotWebChat > * { height: 100%; width: 100%; }
+        .copilot-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--text-muted); font-size: 13px; }
+        .copilot-loading .cp-spinner { width: 28px; height: 28px; border: 3px solid var(--purple-dim); border-top-color: var(--purple); border-radius: 50%; animation: infoSpin 0.8s linear infinite; }
+        .copilot-error { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 24px; text-align: center; color: var(--error); font-size: 13px; gap: 8px; }
+        .copilot-error .ce-icon { font-size: 32px; }
+
+        /* ── WebChat overrides ── */
+        /* Let WebChat handle its own internal flex layout, just style the input */
+        #copilotWebChat .webchat__send-box { 
+            background: var(--surface) !important; padding: 12px 14px !important; 
+            border-top: 1px solid var(--border) !important; box-sizing: border-box !important;
+        }
+
+        /* Input styling */
+        #copilotWebChat .webchat__send-box-text-box__input { 
+            background: var(--bg) !important; border: 1px solid var(--border) !important; border-radius: 22px !important; 
+            padding: 10px 16px !important; font-size: 14px !important; min-height: 44px !important; max-height: 120px !important; 
+            box-sizing: border-box !important; transition: border-color 0.15s !important; line-height: 1.4 !important; 
+            resize: none !important; width: 100% !important; margin: 0 !important;
+        }
+        #copilotWebChat .webchat__send-box-text-box__input:focus { border-color: var(--purple) !important; outline: none !important; box-shadow: 0 0 0 3px var(--purple-dim) !important; }
+        
+        #copilotWebChat .webchat__typing-indicator { flex: 0 0 auto !important; padding: 4px 12px 10px !important; font-size: 12px !important; color: var(--text-muted) !important; }
+        #copilotWebChat .webchat__bubble__content { font-size: 13px !important; line-height: 1.55 !important; padding: 10px 14px !important; }
+        #copilotWebChat .webchat__stacked-layout__message { margin-bottom: 4px !important; }
+        #copilotWebChat .webchat__stacked-layout--from-user .webchat__bubble__content { box-shadow: 0 1px 4px rgba(124,58,237,0.2) !important; }
+        #copilotWebChat .webchat__stacked-layout:not(.webchat__stacked-layout--from-user) .webchat__bubble__content { box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important; }
+        #copilotWebChat .webchat__send-box__button,
+        #copilotWebChat button[title="Send"] { color: var(--purple) !important; border-radius: 50% !important; width: 40px !important; height: 40px !important; flex-shrink: 0 !important; }
+        #copilotWebChat .webchat__send-box__button:hover,
+        #copilotWebChat button[title="Send"]:hover { background: var(--purple-dim) !important; }
+        #copilotWebChat .webchat__imageAvatar { border-radius: 10px !important; }
+
+        /* ── Copilot working indicator ── */
+        .copilot-working {
+          display: none; align-items: center; gap: 8px;
+          padding: 6px 14px; margin: 0;
+          font-size: 12px; color: var(--text-muted);
+          background: var(--bg);
+          border-top: 1px solid var(--border);
+          flex-shrink: 0;
+          pointer-events: none;
+        }
+        .copilot-working.visible { display: flex; }
+        .copilot-working-dot {
+          width: 5px; height: 5px; border-radius: 50%;
+          background: var(--purple); opacity: 0.7;
+          animation: copilotPulse 1.4s ease-in-out infinite;
+        }
+        .copilot-working-dot:nth-child(2) { animation-delay: 0.2s; }
+        .copilot-working-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes copilotPulse {
+          0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+          40% { opacity: 0.9; transform: scale(1); }
+        }
+
+        @media (max-width: 900px) {
+            .copilot-panel { width: 100%; }
+            .app-layout.copilot-active { margin-right: 0; }
+        }
+
+        /* ── Loading / Empty ── */
+        .empty-state { text-align: center; padding: 80px 24px; color: var(--text-dim); }
+        .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+        .empty-state h2 { font-size: 18px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+        .loading-bar { display: none; height: 3px; background: var(--accent-dim); position: relative; overflow: hidden; }
+        .loading-bar.active { display: block; }
+        .loading-bar::after { content: ''; position: absolute; top: 0; left: -40%; width: 40%; height: 100%; background: var(--accent); animation: loadSlide 1.2s ease infinite; }
+        @keyframes loadSlide { 0% { left: -40%; } 100% { left: 100%; } }
+        @keyframes fadeInRow { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .side-panel { width: 100%; transform: translateX(100%); }
+            .side-panel.copilot-offset { right: 0; }
+            .filter-bar { flex-direction: column; align-items: stretch; }
+            .filter-group select, .filter-group input[type="date"] { min-width: auto; width: 100%; }
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .detail-grid { grid-template-columns: 1fr; }
+            .detail-item.full { grid-column: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo">ROUTING DIAGNOSTICS</div>
+        <span class="version">v3.3.0-copilot-gate</span>
+    </div>
+
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label>Date Range</label>
+            <select id="datePreset" onchange="handleDatePreset()">
+                  <option value="allCached" selected>All cached records</option>
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="last7">Last 7 Days</option>
+                <option value="thisMonth">This Month</option>
+                <option value="last30">Last 30 Days</option>
+                <option value="last90">Last 90 Days</option>
+                <option value="custom">Custom Range…</option>
+            </select>
+            <div class="date-inputs" id="dateInputs">
+                <div class="date-range-row">
+                    <input type="date" id="dateFrom" />
+                    <span>to</span>
+                    <input type="date" id="dateTo" />
+                </div>
+            </div>
+        </div>
+        <div class="filter-group">
+            <label>Workstream</label>
+            <select id="filterWorkstream">
+                <option value="">All Workstreams</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Queue</label>
+            <select id="filterQueue">
+                <option value="">All Queues</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Status</label>
+            <select id="filterStatus">
+                <option value="">All Statuses</option>
+                <option value="Completed">Completed</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Failed">Failed</option>
+            </select>
+        </div>
+        <div class="filter-bar-right">
+            <button class="btn-retrieve" id="btnRetrieve" onclick="retrieve()">Retrieve</button>
+            <button class="btn-settings" id="btnSettings" onclick="openSettings()" title="Settings">⚙</button>
+            <button class="copilot-btn" id="btnCopilot" onclick="toggleCopilot()" title="Routing Insight Copilot"><img class="cp-logo" src="/WebResources/alex_copilot_logo" alt="Copilot" /></button>
+        </div>
+    </div>
+
+    <!-- Settings panel -->
+    <div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-header">
+            <h2>⚙ Settings</h2>
+            <button class="panel-close" onclick="closeSettings()">✕</button>
+        </div>
+        <div class="settings-body">
+            <div class="setting-item">
+                <div class="setting-item-header">
+                    <span class="setting-name">Auto-Update In-Progress Records</span>
+                    <label class="toggle"><input type="checkbox" id="toggleAutoUpdate" /><span class="slider"></span></label>
+                </div>
+                <div class="setting-desc">
+                    <strong>Enabled:</strong> Records that were previously retrieved and are still not completed will continue to be refreshed automatically, so you can see the latest status without clicking Retrieve again.<br /><br />
+                    <strong>Disabled:</strong> Previously retrieved records will not be updated automatically. You will need to click Retrieve again to get the latest status.
+                </div>
+                <div class="setting-note">Note: Automatic updates can only refresh records from the last 7 days.</div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-item-header">
+                    <span class="setting-name">Auto-Retrieve Diagnostics</span>
+                    <label class="toggle"><input type="checkbox" id="toggleAutoRefresh" /><span class="slider"></span></label>
+                </div>
+                <div class="setting-desc">
+                    <strong>Enabled:</strong> The system automatically retrieves and refreshes routing diagnostics from Application Insights on a recurring schedule.<br /><br />
+                    <strong>Disabled:</strong> Data will only be retrieved when you manually click Retrieve.
+                </div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-item-header">
+                    <span class="setting-name">Show Copilot</span>
+                    <label class="toggle"><input type="checkbox" id="toggleShowCopilot" /><span class="slider"></span></label>
+                </div>
+                <div class="setting-desc">
+                    <strong>Enabled:</strong> The Routing Insight Copilot button is visible in the toolbar, allowing users to open the AI assistant panel.<br /><br />
+                    <strong>Disabled:</strong> The Copilot button is hidden.
+                </div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-item-header">
+                    <span class="setting-name">Open Copilot by Default</span>
+                    <label class="toggle"><input type="checkbox" id="toggleCopilotDefault" /><span class="slider"></span></label>
+                </div>
+                <div class="setting-desc">
+                    <strong>Enabled:</strong> The Copilot panel opens automatically when the page loads.<br /><br />
+                    <strong>Disabled:</strong> The Copilot panel stays closed until manually opened.
+                </div>
+            </div>
+        </div>
+        <div class="settings-footer">
+            <span class="footer-note">Settings are stored as environment variables in your Dataverse solution.</span>
+            <button class="btn-save" id="btnSaveSettings" onclick="saveSettings()">Save</button>
+        </div>
+    </div>
+
+    <div class="app-layout">
+        <div class="app-main" id="appMain">
+            <div class="loading-bar" id="loadingBar"></div>
+
+            <div class="error-bar" id="errorBar">
+                <span id="errorMsg"></span>
+                <span class="dismiss" onclick="dismissError()">✕</span>
+            </div>
+
+            <div class="info-bar" id="infoBar">
+                <span class="spinner"></span>
+                <span id="infoMsg">Retrieving data from Application Insights…</span>
+                <span class="dismiss" onclick="dismissInfo()">✕</span>
+            </div>
+
+            <div class="stats-bar" id="statsBar" style="display:none;">
+                <div><span class="stat-val" id="statTotal">0</span><span class="stat-label"> conversations</span></div>
+                <div><span class="stat-val" id="statCompleted">0</span><span class="stat-label"> completed</span></div>
+                <div><span class="stat-val" id="statFailed">0</span><span class="stat-label"> failed</span></div>
+                <div><span class="stat-val" id="statAvgDuration">0s</span><span class="stat-label"> avg duration</span></div>
+            </div>
+
+            <div class="grid-container" id="gridContainer">
+                <div class="empty-state" id="emptyState">
+                    <div class="icon">⊘</div>
+                    <h2>Select filters and click Retrieve</h2>
+                    <p>Routing diagnostic data will appear here</p>
+                </div>
+                <table class="grid-table" id="gridTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th data-field="diagnosticItem" onclick="sortGrid(this)">Diagnostic Item <span class="sort-icon">▼</span></th>
+                            <th data-field="routingStatus" onclick="sortGrid(this)">Routing Status <span class="sort-icon">▼</span></th>
+                            <th data-field="routingStartedOn" onclick="sortGrid(this)" class="sorted">Routing Started <span class="sort-icon">▼</span></th>
+                            <th data-field="routingDuration" onclick="sortGrid(this)">Duration <span class="sort-icon">▼</span></th>
+                            <th data-field="workstream" onclick="sortGrid(this)">Workstream <span class="sort-icon">▼</span></th>
+                            <th data-field="queue" onclick="sortGrid(this)">Queue <span class="sort-icon">▼</span></th>
+                            <th data-field="assignedAgent" onclick="sortGrid(this)">Assigned Agent <span class="sort-icon">▼</span></th>
+                            <th style="width:64px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="gridBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Copilot Panel (fixed, independent of page scroll) -->
+    <div class="copilot-panel" id="copilotPanel">
+        <div class="resize-handle" id="copilotPanelResize"></div>
+        <div class="copilot-panel-header">
+            <div class="cp-title"><img class="cp-icon" src="/WebResources/alex_copilot_logo" alt="Copilot" /> Routing Insight <span class="cp-badge">Copilot</span></div>
+            <div class="cp-actions">
+                <button onclick="resetCopilot()" title="New conversation"><i class="icon-rotate-cw" style="font-style: normal;">↻</i></button>
+                <button onclick="toggleCopilot()" title="Close">✕</button>
+            </div>
+        </div>
+        <div class="copilot-panel-body">
+            <div id="copilotWebChat">
+                <div class="copilot-loading"><div class="cp-spinner"></div>Click to initialize Copilot…</div>
+            </div>
+        </div>
+        <div class="copilot-working" id="copilotWorking">
+            <span class="copilot-working-dot"></span>
+            <span class="copilot-working-dot"></span>
+            <span class="copilot-working-dot"></span>
+            <span id="copilotWorkingText">Analyzing …</span>
+        </div>
+    </div>
+
+    <div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
+    <div class="side-panel" id="sidePanel">
+        <div class="resize-handle" id="sidePanelResize"></div>
+        <div class="panel-hero" id="panelHero"></div>
+        <div class="progress-tracker" id="progressTracker"></div>
+        <div class="panel-body" id="panelBody"></div>
+    </div>
+
+    <script>
+// ── Constants ────────────────────────────────────────────────────────────────
+const DEMO_MODE = typeof Xrm === 'undefined' && typeof window.parent?.Xrm === 'undefined';
+const CUSTOM_API_NAME = 'alex_GetRoutingDiagnosticsSummary';
+const SUMMARY_TABLE = 'alex_routingdiagnosticssummary';
+
+const STAGE_ICONS = {
+  'Intake': '⬇', 'Record Identification': '🔍', 'Classification': '🏷', 'Route to queue': '➜',
+  'Prioritization': '⚡', 'Assignment selection': '🎯', 'Assignment': '👤'
+};
+
+// Record (async) routing stages
+const RECORD_STAGE_NAMES = ['Intake','Classification','Route to queue','Prioritization','Assignment selection','Assignment'];
+// Conversation (sync) routing stages
+const CONVERSATION_STAGE_NAMES = ['Intake','Record Identification','Classification','Route to queue','Assignment selection','Assignment'];
+
+// Determine which stage list to use based on channel
+function getStageNamesForChannel(channel) {
+  if (!channel) return RECORD_STAGE_NAMES;
+  const ch = channel.toLowerCase();
+  if (ch === 'record' || ch === 'case' || ch === 'entity') return RECORD_STAGE_NAMES;
+  return CONVERSATION_STAGE_NAMES; // LiveChat, Voice, SMS, etc.
+}
+
+let currentData = [];
+let currentSort = { field: 'routingStartedOn', dir: 'desc' };
+
+// ── Xrm helpers ──────────────────────────────────────────────────────────────
+
+function getXrm() {
+  return (typeof Xrm !== 'undefined') ? Xrm : (window.parent?.Xrm ? window.parent.Xrm : null);
+}
+
+// ── Date helpers ─────────────────────────────────────────────────────────────
+
+function getDateRange() {
+  const preset = document.getElementById('datePreset').value;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let from, to;
+
+  switch (preset) {
+    case 'allCached':
+      from = null;
+      to = null;
+      break;
+    case 'today':
+      from = today;
+      to = now;
+      break;
+    case 'yesterday':
+      from = new Date(today); from.setDate(from.getDate() - 1);
+      to = new Date(today); to.setMilliseconds(-1);
+      break;
+    case 'last7':
+      from = new Date(today); from.setDate(from.getDate() - 7);
+      to = now;
+      break;
+    case 'thisMonth':
+      from = new Date(today.getFullYear(), today.getMonth(), 1);
+      to = now;
+      break;
+    case 'last30':
+      from = new Date(today); from.setDate(from.getDate() - 30);
+      to = now;
+      break;
+    case 'last90':
+      from = new Date(today); from.setDate(from.getDate() - 90);
+      to = now;
+      break;
+    case 'custom':
+      const f = document.getElementById('dateFrom').value;
+      const t = document.getElementById('dateTo').value;
+      from = f ? new Date(f) : null;
+      to = t ? new Date(t + 'T23:59:59') : null;
+      break;
+  }
+  return { from, to };
+}
+
+function handleDatePreset() {
+  document.getElementById('dateInputs').classList.toggle('visible', document.getElementById('datePreset').value === 'custom');
+}
+
+// ── Format helpers ───────────────────────────────────────────────────────────
+
+function formatDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+}
+
+function formatDuration(sec) {
+  if (sec == null) return '—';
+  if (sec === 0) return '0 seconds';
+  if (sec < 60) return `${sec} second${sec !== 1 ? 's' : ''}`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m} min ${s}s`;
+}
+
+function statusCssClass(overallStatus) {
+  if (!overallStatus) return '';
+  const s = overallStatus.toLowerCase().replace(/\s+/g, '-');
+  return s === 'in-progress' ? 'In-Progress' : overallStatus;
+}
+
+function decodeUnicode(str) {
+  if (!str) return str;
+  try {
+    return str.replace(/\\u[\dA-Fa-f]{4}/g, match => String.fromCharCode(parseInt(match.replace(/\\u/g, ''), 16)));
+  } catch (e) {
+    return str;
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  if (typeof str !== 'string') str = String(str);
+  str = decodeUnicode(str);
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Error display ────────────────────────────────────────────────────────────
+
+function showError(msg) {
+  document.getElementById('errorMsg').textContent = msg;
+  document.getElementById('errorBar').classList.add('visible');
+}
+
+function dismissError() {
+  document.getElementById('errorBar').classList.remove('visible');
+}
+
+// ── Load cached data from Dataverse table ────────────────────────────────────
+
+async function loadFromDataverse() {
+  console.log('[RDG] loadFromDataverse() called, DEMO_MODE:', DEMO_MODE);
+  const bar = document.getElementById('loadingBar');
+  bar.classList.add('active');
+  dismissError();
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('gridTable').style.display = 'none';
+  document.getElementById('statsBar').style.display = 'none';
+
+  try {
+    if (DEMO_MODE) {
+      await new Promise(r => setTimeout(r, 500));
+      currentData = getDemoData();
+      renderGrid(currentData);
+      return;
+    }
+
+    const xrm = getXrm();
+    if (!xrm) throw new Error('Xrm context not available.');
+
+    // Build OData filter
+    const filters = [];
+    const { from, to } = getDateRange();
+    if (from) filters.push(`alex_routingstartedon ge ${from.toISOString()}`);
+    if (to)   filters.push(`alex_routingstartedon le ${to.toISOString()}`);
+    const workstream = document.getElementById('filterWorkstream').value;
+    if (workstream) filters.push(`alex_workstream eq '${workstream}'`);
+    const queue = document.getElementById('filterQueue').value;
+    if (queue) filters.push(`alex_queue eq '${queue}'`);
+    const status = document.getElementById('filterStatus').value;
+    if (status) filters.push(`alex_overallstatus eq '${status}'`);
+
+    let query = '?$orderby=alex_routingstartedon desc';
+    if (filters.length > 0) query += '&$filter=' + filters.join(' and ');
+
+    console.log('[RDG] Dataverse query:', SUMMARY_TABLE, query);
+    const result = await xrm.WebApi.retrieveMultipleRecords(SUMMARY_TABLE, query);
+    console.log('[RDG] Loaded', result.entities.length, 'cached records from Dataverse');
+
+    const data = result.entities.map(e => normalizeRecord({
+      conversationId:  e.alex_conversationid,
+      diagnosticItem:  e.alex_diagnosticitem,
+      routingStatus:   e.alex_routingstatus,
+      routingStartedOn: e.alex_routingstartedon,
+      routingDuration: e.alex_routingduration,
+      workstream:      e.alex_workstream,
+      queue:           e.alex_queue,
+      assignedAgent:   e.alex_assignedagent,
+      channel:         e.alex_channel,
+      overallStatus:   e.alex_overallstatus,
+      stageDetails:    e.alex_stagedetails,
+      retrievedOn:     e.alex_retrievedon
+    }));
+
+    currentData = data;
+    renderGrid(data);
+  } catch (err) {
+    showError(err.message || 'Failed to load cached diagnostics.');
+    document.getElementById('emptyState').style.display = 'block';
+    console.error('loadFromDataverse error:', err);
+  } finally {
+    bar.classList.remove('active');
+  }
+}
+
+// ── Info bar ─────────────────────────────────────────────────────────────────
+
+function showInfo(msg) {
+  document.getElementById('infoMsg').textContent = msg;
+  document.getElementById('infoBar').classList.add('visible');
+}
+
+function dismissInfo() {
+  document.getElementById('infoBar').classList.remove('visible');
+}
+
+// ── Retrieve data (live from App Insights via Custom API) ────────────────────
+
+let _pollTimer = null;
+
+async function retrieve() {
+  console.log('[RDG] retrieve() called, DEMO_MODE:', DEMO_MODE);
+  const btn = document.getElementById('btnRetrieve');
+  btn.disabled = true;
+  dismissError();
+  dismissInfo();
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+
+  if (DEMO_MODE) {
+    document.getElementById('loadingBar').classList.add('active');
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('gridTable').style.display = 'none';
+    document.getElementById('statsBar').style.display = 'none';
+    try {
+      const data = await retrieveDemo();
+      currentData = data;
+      renderGrid(data);
+    } catch (err) {
+      showError(err.message || 'Failed to retrieve routing diagnostics.');
+      document.getElementById('emptyState').style.display = 'block';
+    } finally {
+      document.getElementById('loadingBar').classList.remove('active');
+      btn.disabled = false;
+    }
+    return;
+  }
+
+  try {
+    // 1. Immediately reload grid with current filters before syncing
+    // This ensures existing matching records show up right away.
+    await loadFromDataverse();
+
+    // 2. Fire Custom API to trigger the flow (fire and forget — don't block)
+    triggerCustomApi().then(() => {
+      console.log('[RDG] Custom API call completed');
+    }).catch(err => {
+      console.warn('[RDG] Custom API call error (flow may still run):', err);
+    });
+    console.log('[RDG] Custom API fired, starting poll...');
+
+    // 2. Show syncing banner
+    showInfo('Data retrieval requested. Syncing from Application Insights…');
+
+    // 3. Poll Dataverse until data stabilizes
+    const beforeCount = currentData.length;
+    let lastSeenCount = beforeCount;
+    let stablePolls = 0;
+    let pollNumber = 0;
+    const POLL_INTERVAL = 5000;
+    const STABLE_THRESHOLD = 3;
+    const MAX_POLLS = 24; // 2 minutes max
+
+    const doPoll = async () => {
+      pollNumber++;
+      try {
+        // Query Dataverse for current records (lightweight — only IDs)
+        const xrm = getXrm();
+        if (!xrm) return;
+        const filters = [];
+        const { from, to } = getDateRange();
+        if (from) filters.push(`alex_routingstartedon ge ${from.toISOString()}`);
+        if (to)   filters.push(`alex_routingstartedon le ${to.toISOString()}`);
+        const ws = document.getElementById('filterWorkstream').value;
+        if (ws) filters.push(`alex_workstream eq '${ws}'`);
+        const q = document.getElementById('filterQueue').value;
+        if (q) filters.push(`alex_queue eq '${q}'`);
+        const st = document.getElementById('filterStatus').value;
+        if (st) filters.push(`alex_overallstatus eq '${st}'`);
+        let query = '?$select=alex_routingdiagnosticssummaryid';
+        if (filters.length > 0) query += '&$filter=' + filters.join(' and ');
+        const countResult = await xrm.WebApi.retrieveMultipleRecords(SUMMARY_TABLE, query);
+        const currentCount = countResult.entities.length;
+
+        console.log('[RDG] Poll #' + pollNumber + ': lastSeen=' + lastSeenCount + ', current=' + currentCount + ', stable=' + stablePolls);
+
+        if (currentCount !== lastSeenCount) {
+          // Count changed — full reload + render
+          stablePolls = 0;
+          lastSeenCount = currentCount;
+          await loadFromDataverse();
+          showInfo('Retrieved ' + currentData.length + ' records. Additional records may still be syncing…');
+        } else {
+          stablePolls++;
+        }
+
+        // Stop when stable for 3 polls OR max reached
+        if (stablePolls >= STABLE_THRESHOLD || pollNumber >= MAX_POLLS) {
+          clearInterval(_pollTimer);
+          _pollTimer = null;
+          btn.disabled = false;
+          if (lastSeenCount !== beforeCount) {
+            await loadFromDataverse();
+            showInfo('Sync complete. ' + currentData.length + ' records loaded.');
+          } else if (currentData.length === 0) {
+            showInfo('Sync complete. No new records found for the selected filters.');
+          } else {
+            showInfo('Sync complete. No new records detected.');
+          }
+          setTimeout(dismissInfo, 5000);
+          return;
+        }
+      } catch (err) {
+        console.warn('[RDG] Poll error:', err);
+      }
+    };
+
+    // Start polling every 5 seconds
+    _pollTimer = setInterval(doPoll, POLL_INTERVAL);
+
+  } catch (err) {
+    showError(err.message || 'Failed to trigger data retrieval.');
+    btn.disabled = false;
+    console.error('Retrieve error:', err);
+  }
+}
+
+async function triggerCustomApi() {
+  const xrm = getXrm();
+  if (!xrm) throw new Error('Xrm context not available.');
+
+  const { from, to } = getDateRange();
+  const workstream = document.getElementById('filterWorkstream').value;
+  const queue = document.getElementById('filterQueue').value;
+  const status = document.getElementById('filterStatus').value;
+
+  const req = {
+    DateFrom:     from ? from.toISOString() : "",
+    DateTo:       to ? to.toISOString() : "",
+    Workstream:   workstream || "",
+    Queue:        queue || "",
+    Status:       status || "",
+    ForceRefresh: false,
+    getMetadata: function() {
+      return {
+        boundParameter: null,
+        operationName: CUSTOM_API_NAME,
+        operationType: 0,
+        parameterTypes: {
+          DateFrom:     { typeName: "Edm.String",  structuralProperty: 1 },
+          DateTo:       { typeName: "Edm.String",  structuralProperty: 1 },
+          Workstream:   { typeName: "Edm.String",  structuralProperty: 1 },
+          Queue:        { typeName: "Edm.String",  structuralProperty: 1 },
+          Status:       { typeName: "Edm.String",  structuralProperty: 1 },
+          ForceRefresh: { typeName: "Edm.Boolean", structuralProperty: 1 }
+        }
+      };
+    }
+  };
+
+  const response = await xrm.WebApi.online.execute(req);
+  console.log('[RDG] Custom API response status:', response.status);
+}
+
+async function retrieveDemo() {
+  // Simulate network delay
+  await new Promise(r => setTimeout(r, 1200));
+  // Return inline demo data
+  return getDemoData();
+}
+
+function normalizeRecord(r) {
+  let stages = [];
+  if (r.stageDetails) {
+    try {
+      stages = typeof r.stageDetails === 'string' ? JSON.parse(r.stageDetails) : r.stageDetails;
+    } catch { stages = []; }
+  }
+  return {
+    conversationId:  r.conversationId || '',
+    diagnosticItem:  r.diagnosticItem || r.conversationId || '',
+    routingStatus:   r.routingStatus || '',
+    routingStartedOn: r.routingStartedOn || '',
+    routingDuration: r.routingDuration != null ? r.routingDuration : null,
+    workstream:      r.workstream || '',
+    queue:           r.queue || '',
+    assignedAgent:   r.assignedAgent || '',
+    channel:         r.channel || '',
+    overallStatus:   r.overallStatus || '',
+    stageDetails:    stages,
+    retrievedOn:     r.retrievedOn || ''
+  };
+}
+
+// ── Filter dropdowns (pre-loaded from D365 reference tables) ─────────────────
+
+async function preloadFilterDropdowns() {
+  if (DEMO_MODE) {
+    populateSelect('filterWorkstream', 'All Workstreams', ['CCD Record Workstream', 'CCD Messaging Workstream']);
+    populateSelect('filterQueue', 'All Queues', ['CCD USA Entity Support Queue', 'CCD UK Chat Support Queue', 'Billing & Payment']);
+    return;
+  }
+  const xrm = getXrm();
+  if (!xrm) return;
+  try {
+    // Load workstreams from msdyn_liveworkstream
+    const wsResult = await xrm.WebApi.retrieveMultipleRecords(
+      'msdyn_liveworkstream',
+      '?$select=msdyn_name&$filter=statecode eq 0&$orderby=msdyn_name asc'
+    );
+    const wsNames = wsResult.entities.map(e => e.msdyn_name).filter(Boolean);
+    populateSelect('filterWorkstream', 'All Workstreams', wsNames);
+
+    // Load queues from queue (omnichannel queues)
+    const qResult = await xrm.WebApi.retrieveMultipleRecords(
+      'queue',
+      '?$select=name&$filter=statecode eq 0&$orderby=name asc'
+    );
+    const qNames = qResult.entities.map(e => e.name).filter(Boolean).filter(name => {
+        const t = name.trim();
+        return !(t.startsWith('<#') || /^<.*>$/.test(t));
+      });
+    populateSelect('filterQueue', 'All Queues', qNames);
+  } catch (err) {
+    console.warn('Failed to pre-load filter dropdowns:', err);
+  }
+}
+
+function populateSelect(id, defaultLabel, values) {
+  const sel = document.getElementById(id);
+  const current = sel.value;
+  sel.innerHTML = `<option value="">${defaultLabel}</option>`;
+  values.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v;
+    if (v === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// ── Grid rendering ───────────────────────────────────────────────────────────
+
+function renderGrid(data) {
+  const tbody = document.getElementById('gridBody');
+  tbody.innerHTML = '';
+
+  if (!data.length) {
+    document.getElementById('emptyState').querySelector('h2').textContent = 'No records found';
+    document.getElementById('emptyState').querySelector('p').textContent = 'Try adjusting your filters or date range';
+    document.getElementById('emptyState').style.display = 'block';
+    document.getElementById('statsBar').style.display = 'none';
+    return;
+  }
+
+  // Stats
+  const completed = data.filter(d => d.overallStatus === 'Completed').length;
+  const failed = data.filter(d => d.overallStatus === 'Failed').length;
+  const durations = data.map(d => d.routingDuration).filter(d => d != null);
+  const avgDur = durations.length ? Math.round(durations.reduce((s, d) => s + d, 0) / durations.length) : 0;
+
+  document.getElementById('statTotal').textContent = data.length;
+  document.getElementById('statCompleted').textContent = completed;
+  document.getElementById('statFailed').textContent = failed;
+  document.getElementById('statAvgDuration').textContent = formatDuration(avgDur);
+  document.getElementById('statsBar').style.display = 'flex';
+
+  // Sort
+  const sorted = sortData(data, currentSort.field, currentSort.dir);
+
+  sorted.forEach((row, idx) => {
+    const tr = document.createElement('tr');
+    tr.style.animationDelay = `${idx * 0.03}s`;
+    tr.onclick = () => openPanel(row, tr);
+
+    tr.innerHTML = `
+      <td class="item-name" title="${escapeHtml(row.diagnosticItem)}">${escapeHtml(row.diagnosticItem)}</td>
+      <td><span class="status-pill ${statusCssClass(row.overallStatus)}">${escapeHtml(row.routingStatus)}</span></td>
+      <td>${formatDateTime(row.routingStartedOn)}</td>
+      <td class="mono">${formatDuration(row.routingDuration)}</td>
+      <td>${escapeHtml(row.workstream)}</td>
+      <td>${escapeHtml(row.queue) || '—'}</td>
+      <td>${escapeHtml(row.assignedAgent) || '—'}</td>
+      <td><span class="grid-row-actions">${isCopilotEnabled() ? `<button class="grid-copilot-btn" title="Ask Copilot" onclick="askCopilotFromGrid('${escapeHtml(row.conversationId)}', event)"><img src="/WebResources/alex_copilot_logo" alt="Copilot" onerror="this.parentElement.style.display='none'" /></button>` : ''}<span class="expand-arrow">▼</span></span></td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('gridTable').style.display = 'table';
+}
+
+// ── Sorting ──────────────────────────────────────────────────────────────────
+
+function sortData(data, field, dir) {
+  return [...data].sort((a, b) => {
+    let va = a[field], vb = b[field];
+    if (va == null) va = '';
+    if (vb == null) vb = '';
+    if (typeof va === 'number' && typeof vb === 'number') {
+      return dir === 'asc' ? va - vb : vb - va;
+    }
+    va = String(va).toLowerCase();
+    vb = String(vb).toLowerCase();
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
+
+function sortGrid(th) {
+  const field = th.dataset.field;
+  if (currentSort.field === field) {
+    currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSort = { field, dir: 'asc' };
+  }
+  // Update header UI
+  document.querySelectorAll('.grid-table thead th').forEach(h => {
+    h.classList.remove('sorted');
+    const icon = h.querySelector('.sort-icon');
+    if (icon) icon.textContent = '▼';
+  });
+  th.classList.add('sorted');
+  th.querySelector('.sort-icon').textContent = currentSort.dir === 'asc' ? '▲' : '▼';
+
+  renderGrid(currentData);
+}
+
+// ── Side panel ───────────────────────────────────────────────────────────────
+
+let activeRow = null;
+
+function getOverallColor(row) {
+  if (row.overallStatus === 'Failed') return 'error';
+  if (row.overallStatus === 'In Progress') return 'warning';
+  return 'success';
+}
+
+// ── V2 Story Timeline ────────────────────────────────────────────────────────
+
+// Map KQL subscenario names to story event types
+const STORY_EVENT_MAP = {
+  'ConversationCreated': 'conversation-started',
+  'WorkItemCreated':     'conversation-started',
+  'ConversationDetails': 'intake-completed',
+  'IntentDetermination': 'classification',
+  'RecordDetails':       'classification',
+  'RecordIdentification':'record-identification',
+  'UserGroupIdentification':'record-identification',
+  'LineOfBusinessIdentification': 'line-of-business',
+  'RouteToQueue':        'queue-routing',
+  'TransferToQueue':     'queue-routing',
+  'CSRAssignment':       'agent-selected',
+  'CSRAccepted':         'agent-accepted',
+  'CopilotAgentAssignedToConversation': 'bot-assigned',
+  'CopilotAgentEscalationToCSR': 'bot-escalated',
+  'CustomerEndedConversation': 'conversation-ended',
+  'SupervisorForceClosedConversation': 'conversation-ended',
+    'CSREndedConversation': 'conversation-ended',
+    'WorkItemCompleted': 'conversation-ended',
+    'CSRClosedSession': 'session-closed',
+    'CSRRejoinedSession': 'agent-rejoined'
+  };
+
+  const STORY_EVENT_LABELS = {
+  'conversation-started': 'Conversation Started',
+  'intake-completed':     'Intake Completed',
+  'classification':       'Classification',
+  'record-identification':'Record Identification',
+  'line-of-business':     'Line of Business',
+  'queue-routing':        'Queue Routing',
+  'agent-selected':       'Agent Selected',
+  'agent-accepted':       'Agent Accepted',
+  'bot-assigned':         'Bot Assigned to Conversation',
+  'bot-escalated':        'Handoff to Human Support',
+  'conversation-ended':   'Conversation Ended',
+  'session-closed':       'Session Closed',
+  'agent-rejoined':       'Agent Rejoined'
+};
+
+const STORY_EVENT_ICONS = {
+  'conversation-started': '📞',
+  'intake-completed':     '📋',
+  'classification':       '🏷',
+  'record-identification':'🔍',
+  'line-of-business':     '🏢',
+  'queue-routing':        '📌',
+  'agent-selected':       '👤',
+  'agent-accepted':       '✅',
+  'bot-assigned':         '🤖',
+  'bot-escalated':        '🔄',
+  'conversation-ended':   '🔚',
+  'session-closed':       '🔒',
+  'agent-rejoined':       '🔁'
+};
+
+function deriveStageStatus(s) {
+  if (s.status) return s.status;
+  const aStatus = s.assignmentStatus;
+  if (aStatus) {
+    try {
+      const parsed = typeof aStatus === 'string' ? JSON.parse(aStatus) : aStatus;
+      if (parsed.IsAgentAssigned === false || parsed.AgentAssigned === false) return 'failed';
+    } catch {}
+  }
+  return 'completed';
+}
+
+function deriveStageName(s) {
+  const stage = s.stage || s.name || s.eventName || '';
+  const map = {
+    'ConversationCreated': 'Intake', 'ConversationDetails': 'Intake',
+    'RecordDetails': 'Classification', 'RecordIdentification': 'Record Identification',
+    'UserGroupIdentification': 'Record Identification', 'RouteToQueue': 'Route to queue',
+    'TransferToQueue': 'Route to queue', 'CSRAssignment': 'Assignment',
+    'CSRAccepted': 'Assignment', 'IntentDetermination': 'Classification',
+    'WorkItemCreated': 'Intake', 'CSRClosedSession': 'Session Closed',
+    'CSRRejoinedSession': 'Agent Rejoined',
+    'CopilotAgentAssignedToConversation': 'Bot Assigned',
+    'CopilotAgentEscalationToCSR': 'Handoff to Human'
+  };
+  return map[stage] || stage;
+}
+
+function deriveStageOutput(s) {
+  if (s.output) {
+    const si = STATUS_INDICATORS[s.output];
+    return si ? si.text : s.output;
+  }
+  if (s.result) {
+    try {
+      const r = typeof s.result === 'string' ? JSON.parse(s.result) : s.result;
+      if (r.DisplayName) return r.DisplayName;
+    } catch {}
+  }
+  if (s.additionalInfo) {
+    try {
+      const info = typeof s.additionalInfo === 'string' ? JSON.parse(s.additionalInfo) : s.additionalInfo;
+      if (info.RuleSetInfo) {
+        try {
+          const rules = typeof info.RuleSetInfo === 'string' ? JSON.parse(info.RuleSetInfo) : info.RuleSetInfo;
+          if (Array.isArray(rules)) {
+            const applied = rules.find(r => r.Status === 'Applied');
+            if (applied && applied.RuleItem) return applied.RuleItem;
+          }
+        } catch {}
+        if (info.RuleSetName) return info.RuleSetName;
+      }
+      if (info.Workstream) return info.Workstream;
+      if (info.LiveWorkStreamName) return info.LiveWorkStreamName;
+    } catch {}
+  }
+  if (s.recordIdDetails) {
+    try {
+      const rid = typeof s.recordIdDetails === 'string' ? JSON.parse(s.recordIdDetails) : s.recordIdDetails;
+      if (rid.RecordIdentificationStatus) {
+        const si = STATUS_INDICATORS[rid.RecordIdentificationStatus];
+        return si ? si.text : rid.RecordIdentificationStatus;
+      }
+    } catch {}
+  }
+  if (s.assignmentMethod) return s.assignmentMethod;
+  if (s.details) {
+    if (s.details.Workstream) return s.details.Workstream;
+    if (s.details.Rule) return s.details.Rule;
+    if (s.details.Method) return s.details.Method;
+  }
+  if (s.description) return s.description;
+  return '—';
+}
+
+function allStageNames_forEach(names, stageMap, fn) {
+  names.forEach((name, i) => {
+    const st = stageMap[name] || 'pending';
+    const nextSt = i < names.length - 1 ? (stageMap[names[i+1]] || 'pending') : 'pending';
+    const connectorDone = (st === 'completed' && nextSt !== 'pending') ? 'done' : '';
+    const isActive = st === 'in-progress' || st === 'failed';
+    fn(name, st, i, connectorDone, isActive);
+  });
+}
+
+function findMatchingStage(label, stageNames) {
+  const l = label.toLowerCase();
+  const direct = stageNames.find(n => n.toLowerCase() === l);
+  if (direct) return direct;
+  const containing = stageNames.filter(n => n.toLowerCase().includes(l) || l.includes(n.toLowerCase()));
+  if (containing.length) {
+    const startsWith = containing.find(n => n.toLowerCase().startsWith(l));
+    return startsWith || containing[containing.length - 1];
+  }
+  return null;
+}
+
+// ── Story event builders ─────────────────────────────────────────────────────
+
+function getEventType(s) {
+  const raw = s.stage || s.name || s.eventName || '';
+  return STORY_EVENT_MAP[raw] || null;
+}
+
+function getEventTimestamp(s) {
+  return s.start || s.timestamp || '';
+}
+
+function parseJson(val) {
+  if (!val) return null;
+  if (typeof val === 'object') return val;
+  try { return JSON.parse(val); } catch { return null; }
+}
+
+function storyDotClass(status) {
+  if (status === 'completed') return 'success';
+  if (status === 'failed') return 'error';
+  if (status === 'in-progress') return 'in-progress';
+  return 'info';
+}
+
+function storyCardClass(status) {
+  if (status === 'completed') return 'tl-success';
+  if (status === 'failed') return 'tl-error';
+  if (status === 'in-progress') return 'tl-warning';
+  return 'tl-info';
+}
+
+function storyBadgeClass(status) {
+  if (status === 'completed') return 'b-success';
+  if (status === 'failed') return 'b-error';
+  if (status === 'in-progress') return 'b-warning';
+  return 'b-info';
+}
+
+function deriveResultChip(eventType, s, data) {
+  const status = deriveStageStatus(s);
+  if (status === 'failed') return { text: 'Failed', cls: 'r-error' };
+  if (status === 'in-progress') return { text: 'In Progress', cls: 'r-warning' };
+  switch (eventType) {
+    case 'conversation-started': return { text: 'Started', cls: '' };
+    case 'intake-completed': return { text: 'Accepted', cls: 'r-success' };
+    case 'classification': {
+      const info = parseJson(s.additionalInfo);
+      let rule = '';
+      if (info && info.RuleSetInfo) {
+        const rules = parseJson(info.RuleSetInfo);
+        if (Array.isArray(rules)) { const applied = rules.find(r => r.Status === 'Applied'); if (applied) rule = applied.RuleItem; }
+      }
+      return { text: rule ? 'Rule applied' : 'Evaluated', cls: rule ? 'r-success' : '' };
+    }
+    case 'record-identification': {
+      const rid = parseJson(s.recordIdDetails);
+      if (rid && rid.RecordIdentificationStatus) {
+        const code = rid.RecordIdentificationStatus;
+        if (code === 'RI_Success') return { text: 'Processed', cls: 'r-success' };
+        if (code === 'RI_NoUniqueRecordIdentified') return { text: 'Processed', cls: 'r-warning' };
+        if (code === 'RI_ConfigMissing') return { text: 'Configuration missing', cls: 'r-warning' };
+        if (code === 'RI_Failed') return { text: 'Failed', cls: 'r-error' };
+        if (code === 'RI_NotRequired') return { text: 'Not required', cls: '' };
+      }
+      return { text: 'Processed', cls: 'r-success' };
+    }
+    case 'line-of-business': return { text: 'Identified', cls: 'r-success' };
+    case 'queue-routing': {
+      const info = parseJson(s.additionalInfo);
+      let isFallback = false;
+      if (info && info.RuleSetInfo) {
+        const rules = parseJson(info.RuleSetInfo);
+        if (Array.isArray(rules)) {
+          const applied = rules.find(r => r.Status === 'Applied');
+          if (applied && applied.RuleItem) {
+            const rn = applied.RuleItem.toLowerCase();
+            if (rn.includes('fallback') || rn.includes('default')) isFallback = true;
+          }
+          if (!rules.some(r => r.Status === 'Applied')) isFallback = true;
+        }
+      }
+      return isFallback ? { text: 'Default queue', cls: 'r-warning' } : { text: 'Routed to queue', cls: 'r-success' };
+    }
+    case 'agent-selected': {
+      const aStatus = parseJson(s.assignmentStatus);
+      if (aStatus && (aStatus.IsAgentAssigned === false || aStatus.AgentAssigned === false)) return { text: 'No agent found', cls: 'r-error' };
+      return { text: 'Agent found', cls: 'r-success' };
+    }
+    case 'agent-accepted': return { text: 'Accepted', cls: 'r-success' };
+    case 'bot-assigned': return { text: 'Bot assigned', cls: '' };
+    case 'bot-escalated': return { text: 'Handoff', cls: '' };
+    case 'conversation-ended': return { text: 'Ended', cls: '' };
+    case 'session-closed': return { text: 'Closed', cls: '' };
+    case 'agent-rejoined': return { text: 'Rejoined', cls: 'r-success' };
+    default: return { text: status === 'completed' ? 'Completed' : status, cls: status === 'completed' ? 'r-success' : '' };
+  }
+}
+
+function extractCapacityInfo(s) {
+  const fields = [s.assignmentStatus, s.workItemDetails, s.additionalInfo];
+  for (const f of fields) {
+    const obj = parseJson(f);
+    if (!obj) continue;
+    const avail = obj.AvailableCapacity || obj.availableCapacity || obj.Capacity;
+    const req = obj.RequiredCapacity || obj.requiredCapacity || obj.CapacityRequired;
+    if (avail != null || req != null) return { available: avail, required: req };
+    for (const v of Object.values(obj)) {
+      if (v && typeof v === 'object') {
+        const a2 = v.AvailableCapacity || v.availableCapacity;
+        const r2 = v.RequiredCapacity || v.requiredCapacity;
+        if (a2 != null || r2 != null) return { available: a2, required: r2 };
+      }
+    }
+  }
+  return null;
+}
+
+function deriveMeaningChip(eventType, s, data) {
+  switch (eventType) {
+    case 'conversation-started': return data.channel ? escapeHtml(data.channel) : '';
+    case 'intake-completed': {
+      let ws = ''; const info = parseJson(s.additionalInfo);
+      if (info) ws = info.Workstream || info.LiveWorkStreamName || '';
+      if (!ws) ws = data.workstream || '';
+      const short = (ws.replace(/^CCD\s*/i, '').replace(/\s*Workstream$/i, '') || ws);
+      return short ? escapeHtml(short) : '';
+    }
+    case 'classification': {
+      const info = parseJson(s.additionalInfo);
+      if (info && info.RuleSetInfo) {
+        const rules = parseJson(info.RuleSetInfo);
+        if (Array.isArray(rules)) { const applied = rules.find(r => r.Status === 'Applied'); if (applied && applied.RuleItem) return escapeHtml(applied.RuleItem); }
+        if (info.RuleSetName) return escapeHtml(info.RuleSetName);
+      }
+      return '';
+    }
+    case 'record-identification': {
+      const rid = parseJson(s.recordIdDetails);
+      const term = getItemTerminology(data);
+
+      if (rid && rid.RecordIdentificationStatus) {
+        const code = rid.RecordIdentificationStatus;
+        let meaning = '';
+
+        if (term.type === 'record') {
+          if (code === 'RI_Success') meaning = 'Context validated';
+          else if (code === 'RI_NoUniqueRecordIdentified') meaning = 'Context not configured';
+          else if (code === 'RI_ConfigMissing') meaning = 'Configuration missing';
+          else if (code === 'RI_Failed') meaning = 'Validation failed';
+          else if (code === 'RI_NotRequired') meaning = 'Not configured';
+        } else {
+          if (code === 'RI_Success') meaning = 'Record found';
+          else if (code === 'RI_NoUniqueRecordIdentified') meaning = 'No matching record found';
+          else if (code === 'RI_ConfigMissing') meaning = 'Configuration missing';
+          else if (code === 'RI_Failed') meaning = 'Identification failed';
+          else if (code === 'RI_NotRequired') meaning = 'Not configured';
+        }
+        return meaning;
+      }
+      return '';
+    }
+    case 'line-of-business': { const output = deriveStageOutput(s); return output && output !== '—' ? escapeHtml(output) : ''; }
+    case 'queue-routing': {
+      const result = parseJson(s.result);
+      const queueName = result && result.DisplayName ? result.DisplayName : (data.queue || '');
+      return queueName ? 'Queue: ' + escapeHtml(queueName) : '';
+    }
+    case 'agent-selected': {
+      const agent = data.assignedAgent || '';
+      const method = s.assignmentMethod || (s.details && s.details.Method) || '';
+      const parts = [];
+      if (agent) parts.push('Agent: ' + agent);
+      if (method) parts.push('Method: ' + method);
+      const cap = extractCapacityInfo(s);
+      if (cap && cap.available != null) parts.push('Cap: ' + cap.available + (cap.required != null ? '/' + cap.required : ''));
+      return parts.length ? parts.map(escapeHtml).join('</span><span class="tl-meaning">') : '';
+    }
+    case 'agent-accepted': return data.assignedAgent ? 'Agent: ' + escapeHtml(data.assignedAgent) : '';
+    case 'bot-assigned': { const output = deriveStageOutput(s); return output && output !== '—' ? 'Bot: ' + escapeHtml(output) : ''; }
+    case 'bot-escalated': return 'To human support';
+    case 'conversation-ended': return 'Routing: ' + formatDuration(data.routingDuration);
+    case 'session-closed': return '';
+    case 'agent-rejoined': return data.assignedAgent ? escapeHtml(data.assignedAgent) : '';
+    default: { const output = deriveStageOutput(s); return output && output !== '—' ? escapeHtml(output) : ''; }
+  }
+}
+
+function formatDelta(ms) {
+  if (!ms || ms < 0) return '';
+  if (ms < 1000) return '+' + ms + 'ms';
+  const s = ms / 1000;
+  if (s < 60) return '+' + s.toFixed(1) + 's';
+  const m = Math.floor(s / 60);
+  const rem = Math.round(s % 60);
+  return '+' + m + 'm ' + rem + 's';
+}
+
+// ── Narrative generators ─────────────────────────────────────────────────────
+
+function hasAdditionalPayload(s) {
+  const info = parseJson(s.additionalInfo);
+  const details = parseJson(s.details);
+  const result = parseJson(s.result);
+  const ri = parseJson(s.recordIdDetails);
+  
+  if (info && Object.keys(info).length > 0) return true;
+  if (details && Object.keys(details).length > 0) return true;
+  if (result && Object.keys(result).length > 0) return true;
+  if (ri && Object.keys(ri).length > 0) return true;
+  return false;
+}
+
+function getItemTerminology(data) {
+  const ch = data.channel || 'Unknown';
+  const c = ch.toLowerCase();
+  const isConv = ['livechat', 'chat', 'voice', 'sms', 'messaging', 'social', 'teams', 'wechat', 'whatsapp', 'line'].some(x => c.includes(x));
+  
+  if (isConv) {
+    return { type: 'conversation', label: `${ch} conversation` };
+  } else {
+    // Record
+    let recType = ch;
+    if (c === 'entity' || c === 'record' || c === 'unknown') recType = 'Record';
+    return { type: 'record', label: `${recType} work item` };
+  }
+}
+
+function narrativeConversationStarted(s, data) {
+  const ws = parseJson(s.additionalInfo)?.Workstream || parseJson(s.additionalInfo)?.LiveWorkStreamName || parseJson(s.details)?.Workstream || data.workstream || '';
+  const term = getItemTerminology(data);
+  const info = parseJson(s.additionalInfo) || parseJson(s.details) || {};
+  
+  let narrative = `A new <strong>${escapeHtml(term.label)}</strong> was initiated` +
+    (ws ? ` on the <strong>${escapeHtml(ws)}</strong> workstream.` : '.');
+  
+  if (term.type === 'record') {
+    narrative = `A <strong>${escapeHtml(term.label)}</strong> was submitted for routing` + 
+      (ws ? ` on the <strong>${escapeHtml(ws)}</strong> workstream.` : '.');
+  }
+  
+  if (info.description) {
+    narrative += ` Description: ${escapeHtml(info.description)}.`;
+  }
+  if (info.conversationId || info.ConversationId) {
+    narrative += ` ${term.type === 'conversation' ? 'Conversation' : 'Item'} ID: ${escapeHtml(info.conversationId || info.ConversationId)}.`;
+  }
+
+  if (!hasAdditionalPayload(s)) {
+    narrative += ` No additional diagnostic payload was emitted for this lifecycle event.`;
+  }
+  return narrative;
+}
+
+function narrativeIntakeCompleted(s, data) {
+  let ws = '';
+  const info = parseJson(s.additionalInfo);
+  if (info) ws = info.Workstream || info.LiveWorkStreamName || '';
+  if (!ws) ws = data.workstream || '';
+  return `Intake processing completed` +
+    (ws ? ` for workstream <strong>${escapeHtml(ws)}</strong>.` : '.') +
+    ` The work item was accepted and queued for routing.`;
+}
+
+function narrativeClassification(s, data) {
+  const info = parseJson(s.additionalInfo);
+  const term = getItemTerminology(data);
+  let rule = '';
+  if (info && info.RuleSetInfo) {
+    const rules = parseJson(info.RuleSetInfo);
+    if (Array.isArray(rules)) {
+      const applied = rules.find(r => r.Status === 'Applied');
+      if (applied && applied.RuleItem) rule = applied.RuleItem;
+    }
+    if (!rule && info.RuleSetName) rule = info.RuleSetName;
+  }
+  if (rule) {
+    return `Classification rule <strong>${escapeHtml(rule)}</strong> was evaluated and applied.`;
+  }
+  
+  if (s.stage === 'IntentDetermination' || s.name === 'IntentDetermination' || s.eventName === 'IntentDetermination') {
+    return `No intent payload available. No additional diagnostic payload was emitted for this lifecycle event.`;
+  }
+
+  let narrative = `Classification rules were evaluated for this ${term.type === 'record' ? 'work item' : 'conversation'}.`;
+  if (!hasAdditionalPayload(s)) {
+    narrative += ` No additional diagnostic payload was emitted for this lifecycle event.`;
+  }
+  return narrative;
+}
+
+function narrativeRecordIdentification(s, data) {
+  const rid = parseJson(s.recordIdDetails);
+  const term = getItemTerminology(data);
+
+  if (rid && rid.RecordIdentificationStatus) {
+    const code = rid.RecordIdentificationStatus;
+    
+    if (term.type === 'record') {
+      // Record-based logic
+      if (code === 'RI_Success') {
+        return `Record identification context was <strong>successfully validated</strong> for this work item.`;
+      }
+      if (code === 'RI_NoUniqueRecordIdentified') {
+        return `Record identification ran but <strong>no unique matching context</strong> could be determined.`;
+      }
+      if (code === 'RI_ConfigMissing') {
+        return `Record identification configuration is <strong>missing</strong> for this workstream.`;
+      }
+      if (code === 'RI_Failed') {
+        return `Record context validation <strong>failed</strong>. Review the FetchXML and context payload.`;
+      }
+      if (code === 'RI_NotRequired') {
+        return `Record identification context validation was <strong>not required</strong> for this workstream configuration.`;
+      }
+    } else {
+      // Conversation/Chat-based logic
+      if (code === 'RI_Success') {
+        return `A matching record was <strong>successfully identified</strong> and linked to this conversation.`;
+      }
+      if (code === 'RI_NoUniqueRecordIdentified') {
+        return `Record identification ran but <strong>no unique record</strong> could be matched. The agent may need to manually link a record.`;
+      }
+      if (code === 'RI_ConfigMissing') {
+        return `Record identification was attempted but the <strong>configuration is missing</strong>. Check the workstream record identification settings.`;
+      }
+      if (code === 'RI_Failed') {
+        return `Record identification <strong>failed</strong>. Review the FetchXML queries and record identification rules.`;
+      }
+      if (code === 'RI_NotRequired') {
+        return `Record identification was <strong>not required</strong> for this workstream configuration.`;
+      }
+    }
+    const si = STATUS_INDICATORS[code];
+    return `Record identification returned: <strong>${escapeHtml(si ? si.text : code)}</strong>.`;
+  }
+  return term.type === 'record' 
+    ? `Record identification context validation was processed for this work item.`
+    : `Record identification was processed for this conversation.`;
+}
+
+function narrativeQueueRouting(s, data, isRepeat) {
+  const result = parseJson(s.result);
+  const queueName = result && result.DisplayName ? result.DisplayName : (data.queue || '');
+  const term = getItemTerminology(data);
+
+  let narrative = '';
+  if (isRepeat) {
+    narrative = `The ${term.type === 'record' ? 'work item' : 'conversation'} was <strong>re-routed</strong>`;
+  } else {
+    narrative = `The ${term.type === 'record' ? 'work item' : 'conversation'} was routed`;
+  }
+
+  if (queueName) {
+    narrative += ` to queue <strong>${escapeHtml(queueName)}</strong>`;
+  }
+
+  // Detect fallback/default queue
+  const info = parseJson(s.additionalInfo);
+  let isDefault = false;
+  if (info && info.RuleSetInfo) {
+    const rules = parseJson(info.RuleSetInfo);
+    if (Array.isArray(rules)) {
+      const applied = rules.find(r => r.Status === 'Applied');
+      if (applied && applied.RuleItem) {
+        const rn = applied.RuleItem.toLowerCase();
+        if (rn.includes('fallback') || rn.includes('default')) isDefault = true;
+      }
+      if (!rules.some(r => r.Status === 'Applied')) isDefault = true;
+    }
+  }
+  if (isDefault) {
+    narrative += ` via <strong>default/fallback routing</strong> (no route-to-queue rule matched)`;
+  }
+
+  return narrative + '.';
+}
+
+function narrativeAgentSelected(s, data) {
+  const agent = data.assignedAgent || '';
+  const method = s.assignmentMethod || (s.details && s.details.Method) || '';
+  const aStatus = parseJson(s.assignmentStatus);
+  const term = getItemTerminology(data);
+
+  let narrative = '';
+  if (aStatus && (aStatus.IsAgentAssigned === false || aStatus.AgentAssigned === false)) {
+    narrative = `Agent assignment <strong>failed</strong> for this ${term.type === 'record' ? 'work item' : 'conversation'}`;
+    if (method) narrative += ` using the <strong>${escapeHtml(method)}</strong> method`;
+    narrative += `. No available agent matched the assignment criteria.`;
+    return narrative;
+  }
+
+  if (agent) {
+    narrative = `<strong>${escapeHtml(agent)}</strong> was selected`;
+  } else {
+    narrative = `An agent was selected`;
+  }
+  if (method) narrative += ` using the <strong>${escapeHtml(method)}</strong> assignment method`;
+  // Add capacity info if available
+  const cap = extractCapacityInfo(s);
+  if (cap && cap.available != null) {
+    narrative += ` (available capacity: <strong>${cap.available}</strong>`;
+    if (cap.required != null) narrative += ` / required: <strong>${cap.required}</strong>`;
+    narrative += ')';
+  }
+  narrative += '.';
+  return narrative;
+}
+
+function narrativeAgentAccepted(s, data) {
+  const info = parseJson(s.additionalInfo) || parseJson(s.details) || {};
+  const term = getItemTerminology(data);
+  const agent = info.agentName || info.AgentName || data.assignedAgent || '';
+  const agentId = info.targetAgentId || info.TargetAgentId || '';
+  const queueId = info.targetQueueId || info.TargetQueueId || '';
+  const prevState = info.previousState || info.PreviousState || '';
+  const newState = info.newState || info.NewState || '';
+
+  let narrative = `The assigned agent accepted the ${term.type === 'record' ? 'work item' : 'conversation'}.`;
+  if (agent) {
+    narrative = `<strong>${escapeHtml(agent)}</strong> accepted the ${term.type === 'record' ? 'work item' : 'conversation'} and the session is now active.`;
+  }
+  if (agentId) narrative += ` Target Agent ID: ${escapeHtml(agentId)}.`;
+  if (queueId) narrative += ` Target Queue ID: ${escapeHtml(queueId)}.`;
+  if (prevState && newState) narrative += ` State transitioned from <strong>${escapeHtml(prevState)}</strong> to <strong>${escapeHtml(newState)}</strong>.`;
+
+  if (!hasAdditionalPayload(s)) {
+    narrative += ` No additional diagnostic payload was emitted for this lifecycle event.`;
+  }
+  return narrative;
+}
+
+function narrativeConversationEnded(s, data) {
+  const term = getItemTerminology(data);
+  let narrative = term.type === 'record' ? `The work item has completed.` : `The conversation has ended.`;
+  const info = parseJson(s.additionalInfo) || parseJson(s.details) || {};
+  const prevState = info.previousState || info.PreviousState || '';
+  const newState = info.newState || info.NewState || '';
+  const initiator = info.initiatorId || info.InitiatorId || '';
+
+  if (initiator) narrative += ` Initiator ID: <strong>${escapeHtml(initiator)}</strong>.`;
+  if (prevState && newState) narrative += ` State transitioned from <strong>${escapeHtml(prevState)}</strong> to <strong>${escapeHtml(newState)}</strong>.`;
+
+  // Break down timing if we have stage timestamps
+  if (data.routingDuration) {
+    narrative += ` Routing duration: <strong>${formatDuration(data.routingDuration)}</strong>.`;
+  }
+  if (!hasAdditionalPayload(s)) {
+    narrative += ` No additional diagnostic payload was emitted for this lifecycle event.`;
+  }
+  return narrative;
+}
+
+function narrativeSessionClosed(s, data) {
+  let narrative = `The session was closed.`;
+  const info = parseJson(s.additionalInfo) || parseJson(s.details) || {};
+  const prevState = info.previousState || info.PreviousState || '';
+  const newState = info.newState || info.NewState || '';
+  const initiator = info.initiatorId || info.InitiatorId || '';
+
+  if (initiator) narrative += ` Initiator: <strong>${escapeHtml(initiator)}</strong>.`;
+  if (prevState && newState) narrative += ` State transitioned from <strong>${escapeHtml(prevState)}</strong> to <strong>${escapeHtml(newState)}</strong>.`;
+
+  if (!hasAdditionalPayload(s)) {
+    narrative += ` No additional diagnostic payload was emitted for this lifecycle event.`;
+  }
+  return narrative;
+}
+
+function narrativeAgentRejoined(s, data) {
+  const info = parseJson(s.additionalInfo) || parseJson(s.details) || {};
+  const agent = info.agentName || info.AgentName || data.assignedAgent || '';
+  const prevState = info.previousState || info.PreviousState || '';
+  const newState = info.newState || info.NewState || '';
+  const term = getItemTerminology(data);
+
+  let narrative = `The agent rejoined the ${term.type === 'record' ? 'work session' : 'conversation session'}.`;
+  if (agent) {
+    narrative = `<strong>${escapeHtml(agent)}</strong> rejoined the ${term.type === 'record' ? 'work session' : 'conversation session'}.`;
+  }
+  if (prevState && newState) narrative += ` State transitioned from <strong>${escapeHtml(prevState)}</strong> to <strong>${escapeHtml(newState)}</strong>.`;
+
+  if (!hasAdditionalPayload(s)) {
+    narrative += ` No additional diagnostic payload was emitted for this lifecycle event.`;
+  }
+  return narrative;
+}
+
+function narrativeLineOfBusiness(s) {
+  const output = deriveStageOutput(s);
+  if (output && output !== '—') {
+    return `Line of business was identified as <strong>${escapeHtml(output)}</strong>.`;
+  }
+  return `Line of business identification was processed.`;
+}
+
+function narrativeBotAssigned(s, data) {
+  const term = getItemTerminology(data);
+  let narrative = `A bot was assigned to handle this ${term.type === 'record' ? 'work item' : 'conversation'} before routing to a human agent.`;
+  const info = parseJson(s.additionalInfo) || parseJson(s.details) || {};
+  const botId = info.targetAgentId || info.TargetAgentId || info.BotId || deriveStageOutput(s) || '';
+  
+  if (botId && botId !== '—') {
+    narrative = `A bot (ID: <strong>${escapeHtml(botId)}</strong>) was assigned to handle this ${term.type === 'record' ? 'work item' : 'conversation'} before routing to a human agent.`;
+  }
+  
+  if (info.description) {
+    narrative += ` Description: ${escapeHtml(info.description)}.`;
+  }
+  
+  if (!hasAdditionalPayload(s)) {
+    narrative += ` No additional diagnostic payload was emitted for this lifecycle event.`;
+  }
+  return narrative;
+}
+
+function narrativeBotEscalated(s, data) {
+  const term = getItemTerminology(data);
+  let narrative = `The bot escalated the ${term.type === 'record' ? 'work item' : 'conversation'} to human support. The human agent will be selected later during assignment.`;
+  const info = parseJson(s.additionalInfo) || parseJson(s.details) || {};
+  const initiator = info.initiatorId || info.InitiatorId || info.BotId || '';
+  if (initiator) {
+    narrative += ` Initiator bot ID: <strong>${escapeHtml(initiator)}</strong>.`;
+  }
+  if (info.description) {
+    narrative += ` Description: ${escapeHtml(info.description)}.`;
+  }
+  if (!hasAdditionalPayload(s)) {
+    narrative += ` No additional diagnostic payload was emitted for this lifecycle event.`;
+  }
+  return narrative;
+}
+
+function narrativeDefault(s) {
+  const rawName = s.stage || s.name || s.eventName || '';
+  const friendlyName = deriveStageName(s) || rawName;
+  const output = deriveStageOutput(s);
+  return `Stage <strong>${escapeHtml(friendlyName)}</strong> completed` +
+    (output && output !== '—' ? ` with result: <strong>${escapeHtml(output)}</strong>.` : '.');
+}
+
+function generateNarrative(eventType, s, data, isRepeat) {
+  switch (eventType) {
+    case 'conversation-started': return narrativeConversationStarted(s, data);
+    case 'intake-completed': return narrativeIntakeCompleted(s, data);
+    case 'classification': return narrativeClassification(s, data);
+    case 'record-identification': return narrativeRecordIdentification(s, data);
+    case 'line-of-business': return narrativeLineOfBusiness(s);
+    case 'queue-routing': return narrativeQueueRouting(s, data, isRepeat);
+    case 'agent-selected': return narrativeAgentSelected(s, data);
+    case 'agent-accepted': return narrativeAgentAccepted(s, data);
+    case 'bot-assigned': return narrativeBotAssigned(s, data);
+    case 'bot-escalated': return narrativeBotEscalated(s, data);
+    case 'conversation-ended': return narrativeConversationEnded(s, data);
+    case 'session-closed': return narrativeSessionClosed(s, data);
+    case 'agent-rejoined': return narrativeAgentRejoined(s, data);
+    default: return narrativeDefault(s);
+  }
+}
+
+// ── Story event severity (separate from execution status) ────────────────────
+
+function storyEventSeverity(eventType, s) {
+  const status = deriveStageStatus(s);
+  if (status === 'failed') return 'error';
+  if (status === 'in-progress') return 'warning';
+
+  // Business-outcome checks
+  if (eventType === 'record-identification') {
+    const rid = parseJson(s.recordIdDetails);
+    if (rid && rid.RecordIdentificationStatus) {
+      const code = rid.RecordIdentificationStatus;
+      if (code === 'RI_NoUniqueRecordIdentified' || code === 'RI_Failed') return 'warning';
+      if (code === 'RI_ConfigMissing') return 'warning';
+    }
+  }
+
+  if (eventType === 'queue-routing') {
+    const info = parseJson(s.additionalInfo);
+    if (info && info.RuleSetInfo) {
+      const rules = parseJson(info.RuleSetInfo);
+      if (Array.isArray(rules)) {
+        const applied = rules.find(r => r.Status === 'Applied');
+        if (applied && applied.RuleItem) {
+          const rn = applied.RuleItem.toLowerCase();
+          if (rn.includes('fallback') || rn.includes('default')) return 'warning';
+        }
+        if (!rules.some(r => r.Status === 'Applied')) return 'warning';
+      }
+    }
+  }
+
+  if (eventType === 'agent-selected') {
+    const aStatus = parseJson(s.assignmentStatus);
+    if (aStatus && (aStatus.IsAgentAssigned === false || aStatus.AgentAssigned === false)) return 'error';
+  }
+
+  if (eventType === 'bot-escalated') return 'info';
+
+  return 'success';
+}
+
+// ── Build story events from raw stages ───────────────────────────────────────
+
+function buildStoryEvents(stages, data) {
+  const events = [];
+  const seenTypes = {};
+
+  // Sort stages chronologically
+  const sorted = [...stages].sort((a, b) => {
+    const ta = new Date(getEventTimestamp(a) || 0).getTime();
+    const tb = new Date(getEventTimestamp(b) || 0).getTime();
+    return ta - tb;
+  });
+
+  sorted.forEach(s => {
+    const eventType = getEventType(s) || 'unknown';
+    const isRepeat = !!seenTypes[eventType];
+    seenTypes[eventType] = (seenTypes[eventType] || 0) + 1;
+
+    const status = deriveStageStatus(s);
+    const severity = storyEventSeverity(eventType, s);
+    const ts = getEventTimestamp(s);
+    let label = STORY_EVENT_LABELS[eventType] || (s.name || deriveStageName(s));
+
+    if (eventType === 'conversation-ended') {
+      const term = getItemTerminology(data);
+      label = term.type === 'record' ? 'Work Item Completed' : 'Conversation Ended';
+    }
+    
+    // Dynamic renaming for Record type
+    const term = getItemTerminology(data);
+    if (term.type === 'record') {
+      if (eventType === 'conversation-started') label = 'Work Item Intake';
+      if (eventType === 'conversation-ended') label = 'Work Item Completed';
+      if (eventType === 'bot-assigned') label = 'Bot Assigned to Work Item';
+    }
+
+    const icon = STORY_EVENT_ICONS[eventType] || '●';
+
+    events.push({
+      eventType,
+      label: isRepeat ? label + ' (' + seenTypes[eventType] + ')' : label,
+      icon,
+      status,
+      severity,
+      timestamp: ts,
+      duration: s.duration,
+      narrative: generateNarrative(eventType, s, data, isRepeat),
+      resultChip: deriveResultChip(eventType, s, data),
+      meaningChip: deriveMeaningChip(eventType, s, data),
+      rawStage: s,
+      isRepeat
+    });
+  });
+
+  return events;
+}
+
+// ── Generate text summary ────────────────────────────────────────────────────
+
+function generateStorySummary(events, data) {
+  const parts = [];
+  const term = getItemTerminology(data);
+  const ch = data.channel || 'Unknown';
+  let firstSentence = term.type === 'record' 
+    ? `A <strong>${escapeHtml(term.label)}</strong>` 
+    : `A <strong>${escapeHtml(ch)}</strong> conversation`;
+
+  const queueEvent = [...events].reverse().find(e => e.eventType === 'queue-routing');
+  const queueName = queueEvent && queueEvent.rawStage.result ? (parseJson(queueEvent.rawStage.result).DisplayName || data.queue) : data.queue;
+
+  if (queueName) {
+    firstSentence += ` was routed to <strong>${escapeHtml(queueName)}</strong>.`;
+  } else {
+    const overall = (data.overallStatus || '').toLowerCase();
+    if (overall === 'completed' || overall === 'succeeded') {
+      firstSentence += ' completed routing successfully.';
+    } else if (overall === 'failed') {
+      firstSentence += ' <strong>failed</strong> during routing.';
+    } else if (overall === 'in progress') {
+      firstSentence += ' is currently <strong>in progress</strong>.';
+    } else {
+      firstSentence += ' was processed.';
+    }
+  }
+  parts.push(firstSentence);
+
+  const riEvents = events.filter(e => e.eventType === 'record-identification');
+  if (riEvents.length > 0) {
+    const ri = riEvents[riEvents.length - 1];
+    const rs = parseJson(ri.rawStage.recordIdDetails)?.RecordIdentificationStatus;
+    if (rs === 'RI_Success') {
+      parts.push(term.type === 'record' ? `Record identification successfully validated context.` : `Record identification successfully found a matching record.`);
+    } else if (rs === 'RI_NoUniqueRecordIdentified') {
+      parts.push(term.type === 'record' ? `Record identification could not determine a unique matching context.` : `Record identification ran but found no unique matching record.`);
+    } else if (rs === 'RI_ConfigMissing') {
+      parts.push(`Record identification configuration was missing.`);
+    } else if (rs === 'RI_Failed') {
+      parts.push(`Record identification failed.`);
+    }
+  }
+
+  const classEvents = events.filter(e => e.eventType === 'classification');
+  if (classEvents.length > 0) {
+    const classEvt = classEvents[classEvents.length - 1];
+    const mc = deriveMeaningChip('classification', classEvt.rawStage, data);
+    if (mc) {
+      // mc is pre-escaped from deriveMeaningChip usually, but we make sure below
+      parts.push(`Classification produced <strong>${mc}</strong>.`);
+    }
+  }
+
+  const assignEvents = events.filter(e => e.eventType === 'agent-selected');
+  if (assignEvents.length > 0) {
+    const completions = assignEvents.filter(e => deriveStageStatus(e.rawStage) === 'completed');
+    const failures = assignEvents.filter(e => deriveStageStatus(e.rawStage) === 'failed');
+
+    if (failures.length > 0 && completions.length > 0) {
+      const lastCompletion = completions[completions.length - 1];
+      const agent = lastCompletion.rawStage.details?.AssignedAgent || parseJson(lastCompletion.rawStage.details)?.AssignedAgent || data.assignedAgent || 'an agent';
+      parts.push(`Initial assignment failed because no available agent matched the assignment criteria. A later assignment succeeded and selected <strong>${escapeHtml(agent)}</strong>.`);
+    } else if (failures.length > 0) {
+      parts.push(`Agent assignment failed because no available agent matched the assignment criteria.`);
+    } else if (completions.length > 0) {
+      const lastCompletion = completions[completions.length - 1];
+      const agent = lastCompletion.rawStage.details?.AssignedAgent || parseJson(lastCompletion.rawStage.details)?.AssignedAgent || data.assignedAgent || 'an agent';
+      parts.push(`Agent assignment successfully selected <strong>${escapeHtml(agent)}</strong>.`);
+    }
+  } else if (data.assignedAgent) {
+     parts.push(`Agent assignment successfully selected <strong>${escapeHtml(data.assignedAgent)}</strong>.`);
+  }
+
+  const warnings = events.filter(e => e.severity === 'error' || (e.severity === 'warning' && e.eventType !== 'bot-escalated'));
+  if (warnings.length) {
+    const issues = warnings.map(e => e.label.toLowerCase());
+    parts.push(`⚠ Attention needed at: ${issues.map(i => `<strong>${escapeHtml(i)}</strong>`).join(', ')}.`);
+  }
+
+  return parts.join(' ');
+}
+
+// ── Render the story timeline HTML ───────────────────────────────────────────
+
+function renderStoryTimeline(events, conversationId) {
+  let html = '';
+  let prevTs = null;
+
+  events.forEach((evt, i) => {
+    // Use severity for dot/card coloring when it differs from execution status
+    let dotClass, cardClass;
+    if (evt.severity === 'error') { dotClass = 'error'; cardClass = 'tl-error'; }
+    else if (evt.severity === 'warning') { dotClass = 'warning'; cardClass = 'tl-warning'; }
+    else if (evt.severity === 'info') { dotClass = 'info'; cardClass = 'tl-info'; }
+    else { dotClass = storyDotClass(evt.status); cardClass = storyCardClass(evt.status); }
+    const dotIcon = evt.status === 'completed' ? '✓' : evt.status === 'failed' ? '✗' : '…';
+
+    const ts = evt.timestamp ? new Date(evt.timestamp) : null;
+    const timeStr = ts ? ts.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+
+    // Delta from previous event
+    let deltaHtml = '';
+    if (prevTs && ts) {
+      const deltaMs = ts.getTime() - prevTs.getTime();
+      const delta = formatDelta(deltaMs);
+      if (delta) deltaHtml = `<span class="tl-delta">${delta}</span>`;
+    }
+    if (ts) prevTs = ts;
+
+    // Two-chip system: result + meaning
+    const rc = evt.resultChip;
+    const mc = evt.meaningChip;
+    let chipsHtml = `<div class="tl-chips"><span class="tl-result ${rc.cls}">${escapeHtml(rc.text)}</span>`;
+    if (mc) chipsHtml += `<span class="tl-meaning">${mc}</span>`;
+    chipsHtml += '</div>';
+
+    // Evidence: collect all detail fields from raw stage
+    const s = evt.rawStage;
+    const coreFields = s.details ? Object.assign({}, s.details) : {};
+    const extraFieldKeys = ['result', 'assignmentStatus', 'assignmentMethod', 'rulesExecuted', 'workItemDetails', 'recordIdDetails', 'additionalInfo'];
+    extraFieldKeys.forEach(f => {
+      if (s[f] && !coreFields[f]) {
+        coreFields[f] = typeof s[f] === 'string' ? s[f] : JSON.stringify(s[f]);
+      }
+    });
+    // Add raw scenario name to evidence
+    const rawName = s.stage || s.name || s.eventName || '';
+    if (rawName && !coreFields['Scenario']) coreFields['Scenario'] = rawName;
+    const allEntries = Object.entries(coreFields).filter(([, v]) => !isEmptyValue(v));
+    const hasEvidence = allEntries.length > 0;
+
+    let evidenceHtml = '';
+    if (hasEvidence) {
+      evidenceHtml += '<div class="st-kv">';
+      allEntries.forEach(([k, v]) => {
+        const rendered = formatDetailValue(v);
+        if (needsFullWidth(rendered)) {
+          evidenceHtml += `<div class="kv-block"><div class="k">${escapeHtml(humanizeLabel(k))}</div><div class="v">${rendered}</div></div>`;
+        } else {
+          evidenceHtml += `<span class="k">${escapeHtml(humanizeLabel(k))}</span><span class="v">${rendered}</span>`;
+        }
+      });
+      evidenceHtml += '</div>';
+    }
+
+    const evtId = evt.rawStage?.stageId || evt.id || (rawName + '_' + evt.timestamp + '_' + i);
+    const cardExpanded = window._expandedToggles && window._expandedToggles[evtId];
+    const eviExpanded = window._expandedToggles && window._expandedToggles[evtId + '_evi'];
+
+    // V3.0.1: register contextual Copilot prompt for problem cards
+    let askCopilotBtnHtml = '';
+    if (isCopilotEnabled() && shouldShowContextualCopilot(evt)) {
+      _copilotEventPrompts[evtId] = buildContextualCopilotPrompt(evt, conversationId);
+      askCopilotBtnHtml = `<button class="tl-ask-copilot" type="button" title="Ask Copilot to explain this issue" onclick="askCopilotForEvent('${escapeHtml(evtId)}', event)"><span class="ac-icon"><img src="/WebResources/alex_copilot_logo" alt="" onerror="this.style.display='none'" /></span>Explain with Copilot</button>`;
+    }
+
+    html += `<div class="tl-item ${cardExpanded ? 'open' : ''}" style="animation-delay:${i * 0.06}s">
+      <div class="tl-dot ${dotClass}">${dotIcon}</div>
+      <div class="tl-card ${cardClass}">
+        <div class="tl-header" data-action="toggle-card" data-toggle-id="${escapeHtml(evtId)}">
+          <div class="tl-header-left">
+            <span class="tl-stage">${evt.icon} ${escapeHtml(evt.label)}</span>
+            ${chipsHtml}
+          </div>
+          <div class="tl-header-right">
+            ${deltaHtml}
+            <span class="tl-time">${timeStr}</span>
+            ${evt.duration != null && evt.duration > 0 ? `<span class="tl-delta">${formatDuration(evt.duration)}</span>` : ''}
+            <span class="tl-chevron">▸</span>
+          </div>
+        </div>
+        <div class="tl-body">
+          <div class="tl-desc">${evt.narrative}</div>
+          ${hasEvidence ? `<button class="tl-evidence-toggle" data-action="toggle-evidence" data-toggle-id="${escapeHtml(evtId + '_evi')}">${eviExpanded ? '▾ Hide technical details' : '▸ Show technical details'}</button><div class="tl-evidence ${eviExpanded ? 'open' : ''}"><div class="tl-evidence-inner">${evidenceHtml}</div></div>` : ''}
+          ${askCopilotBtnHtml}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  return html;
+}
+
+// ── openPanel (V2 Story) ─────────────────────────────────────────────────────
+
+function openPanel(data, rowEl) {
+  if (activeRow) activeRow.classList.remove('selected');
+  activeRow = rowEl;
+  rowEl.classList.add('selected');
+
+  const stages = data.stageDetails || [];
+
+  // Hero
+  document.getElementById('panelHero').innerHTML = `
+    <div class="panel-hero-top">
+      <div>
+        <div class="panel-overline">Routing Story</div>
+        <div class="panel-title">${escapeHtml(data.diagnosticItem)}</div>
+        <div class="panel-status-row">
+          <span class="status-pill ${statusCssClass(data.overallStatus)}">${escapeHtml(data.routingStatus)}</span>
+          ${data.conversationId && isCopilotEnabled() ? `<button class="ask-copilot-btn" type="button" title="Send this routing conversation to Copilot for analysis" onclick="askCopilotAboutCurrent('${escapeHtml(data.conversationId)}')"><span class="ac-icon"><img src="/WebResources/alex_copilot_logo" alt="" onerror="this.style.display='none'" /></span>Ask Copilot</button>` : ''}
+        </div>
+      </div>
+      <button class="panel-close" onclick="closePanel()">✕</button>
+    </div>`;
+
+  // Progress tracker — keep for at-a-glance view
+  const stageNames = getStageNamesForChannel(data.channel);
+  const stageMap = {};
+  stages.forEach(s => {
+    const name = s.name || deriveStageName(s);
+    const st = deriveStageStatus(s);
+    // Only overwrite if it's the first time OR if the new status is completed
+    if (!stageMap[name] || st === 'completed') {
+      stageMap[name] = st;
+    }
+  });
+  if (data.routingStatus) {
+    const rs = data.routingStatus.toLowerCase();
+    const failMatch = rs.match(/^(.+?)\s*-\s*failed$/);
+    const progressMatch = rs.match(/^(.+?)\s*-\s*in\s*progress$/i);
+    if (failMatch) {
+      const failedStage = findMatchingStage(failMatch[1].trim(), stageNames);
+      if (failedStage && stageMap[failedStage] !== 'completed') stageMap[failedStage] = 'failed';
+    } else if (progressMatch) {
+      const ipStage = findMatchingStage(progressMatch[1].trim(), stageNames);
+      if (ipStage && stageMap[ipStage] !== 'completed') stageMap[ipStage] = 'in-progress';
+    }
+  }
+  let trackerHtml = '';
+  allStageNames_forEach(stageNames, stageMap, (name, st, i, connectorDone, isActive) => {
+    const icon = st === 'completed' ? '✓' : st === 'failed' ? '✗' : st === 'in-progress' ? '…' : (i+1);
+    trackerHtml += `<div class="pt-step${isActive ? ' active' : ''}">
+      <div class="pt-connector ${connectorDone}"></div>
+      <div class="pt-node ${st}">${icon}</div>
+      <div class="pt-label">${name}</div>
+    </div>`;
+  });
+  document.getElementById('progressTracker').innerHTML = trackerHtml;
+
+  // Build story events
+  const events = buildStoryEvents(stages, data);
+
+  // Body: hero facts + summary + story timeline
+  let bodyHtml = '';
+
+  // Compact Hero facts grid
+  const color = getOverallColor(data);
+  const wsShort = (data.workstream || '').replace(/^CCD\s*/i, '').replace(/\s*Workstream$/i, '') || data.workstream || '—';
+  const assignmentMethod = stages.reduce((m, s) => s.assignmentMethod || (s.details && s.details.Method) || m, '');
+  // Only show genuinely problematic findings (not bot handoffs or info-level events)
+  const mainWarning = events.find(e => e.severity === 'error' || (e.severity === 'warning' && e.eventType !== 'bot-escalated'));
+  bodyHtml += `<div class="hero-facts">
+    <div class="hero-fact"><span class="hf-label">Workstream</span><span class="hf-value accent">${escapeHtml(wsShort)}</span></div>
+    <div class="hero-fact"><span class="hf-label">Routing Duration</span><span class="hf-value ${color}">${formatDuration(data.routingDuration)}</span></div>
+    <div class="hero-fact"><span class="hf-label">Queue</span><span class="hf-value">${escapeHtml(data.queue || '—')}</span></div>
+    <div class="hero-fact"><span class="hf-label">Agent</span><span class="hf-value ${data.assignedAgent ? 'success' : 'warning'}">${escapeHtml(data.assignedAgent || '—')}</span></div>
+    <div class="hero-fact"><span class="hf-label">Channel</span><span class="hf-value">${escapeHtml(data.channel || '—')}</span></div>
+    <div class="hero-fact"><span class="hf-label">Assignment</span><span class="hf-value">${escapeHtml(assignmentMethod || '—')}</span></div>
+      ${mainWarning ? `<div class="hero-fact full"><span class="hf-label">⚠ Finding</span><span class="hf-value ${mainWarning.severity === 'error' ? 'error' : 'warning'}">${escapeHtml(mainWarning.label)}: ${escapeHtml(mainWarning.resultChip.text)}${mainWarning.meaningChip && mainWarning.meaningChip !== mainWarning.resultChip.text ? ' — ' + mainWarning.meaningChip : ''}</span></div>` : ''}
+    </div>`;
+
+  // Summary
+  if (events.length) {
+    bodyHtml += `<div class="story-summary">${generateStorySummary(events, data)}</div>`;
+  }
+
+  // Expand all controls
+  if (events.length) {
+    bodyHtml += `
+      <div style="margin: 16px 24px 8px; display: flex; justify-content: flex-end;">
+        <button id="toggleAllDetailsBtn" class="btn-utility" type="button" onclick="toggleAllDetails()" data-expanded="false">
+          <span class="icon">▸</span><span class="text">Expand all details</span>
+        </button>
+      </div>`;
+    bodyHtml += `<div class="story-timeline">${renderStoryTimeline(events, data.conversationId)}</div>`;
+  } else {
+    bodyHtml += `<div style="padding:24px; text-align:center; color:var(--text-dim);">No routing stages available.</div>`;
+  }
+
+  const sidePanel = document.getElementById('sidePanel');
+  if (copilotOpen) {
+    sidePanel.classList.add('copilot-offset');
+    const panel = document.getElementById('copilotPanel');
+    sidePanel.style.right = panel.getBoundingClientRect().width + 'px';
+  }
+
+  document.getElementById('panelBody').innerHTML = bodyHtml;
+  document.getElementById('panelOverlay').classList.add('open');
+  sidePanel.classList.add('open');
+  document.body.classList.add('panel-open');
+}
+
+function closePanel() {
+  const sidePanel = document.getElementById('sidePanel');
+  document.getElementById('panelOverlay').classList.remove('open');
+  sidePanel.classList.remove('open');
+  document.body.classList.remove('panel-open');
+  
+  // Delay removing offset so it slides out smoothly before snapping back to right:0
+  setTimeout(() => {
+    if (!sidePanel.classList.contains('open')) {
+      sidePanel.classList.remove('copilot-offset');
+      sidePanel.style.right = '';
+    }
+  }, 350);
+
+  if (activeRow) activeRow.classList.remove('selected');
+  activeRow = null;
+}
+
+window.toggleAllDetails = function() {
+  const panelBody = document.getElementById('panelBody');
+  const btn = document.getElementById('toggleAllDetailsBtn');
+  if (!btn) return;
+  
+  const isExpanding = btn.dataset.expanded !== 'true';
+  btn.dataset.expanded = isExpanding ? 'true' : 'false';
+  btn.querySelector('.text').textContent = isExpanding ? 'Collapse all details' : 'Expand all details';
+  btn.querySelector('.icon').textContent = isExpanding ? '▾' : '▸';
+
+  window._expandedToggles = window._expandedToggles || {};
+
+  // Toggle cards
+  const cards = panelBody.querySelectorAll('.tl-item');
+  cards.forEach(item => {
+    if (isExpanding) {
+      item.classList.add('open');
+    } else {
+      item.classList.remove('open');
+    }
+    const header = item.querySelector('[data-action="toggle-card"]');
+    if (header) {
+      const toggleId = header.getAttribute('data-toggle-id');
+      if (toggleId) window._expandedToggles[toggleId] = isExpanding;
+    }
+  });
+
+  // Toggle evidence (technical details)
+  const toggles = panelBody.querySelectorAll('[data-action="toggle-evidence"]');
+  toggles.forEach(toggle => {
+    const ev = toggle.nextElementSibling;
+    if (ev) {
+      if (isExpanding) {
+        ev.classList.add('open');
+        toggle.textContent = '▾ Hide technical details';
+      } else {
+        ev.classList.remove('open');
+        toggle.textContent = '▸ Show technical details';
+      }
+      const toggleId = toggle.getAttribute('data-toggle-id');
+      if (toggleId) window._expandedToggles[toggleId] = isExpanding;
+    }
+  });
+};
+
+// ── Label & value formatting helpers ─────────────────────────────────────────
+
+const LABEL_MAP = {
+  'recordIdDetails': 'Record ID Details',
+  'additionalInfo': 'Additional Info',
+  'assignmentStatus': 'Assignment Status',
+  'assignmentMethod': 'Assignment Method',
+  'rulesExecuted': 'Rules Executed',
+  'workItemDetails': 'Work Item Details',
+  'FetchXmlQueries': 'FetchXML Queries',
+  'FetchXmlOutput': 'FetchXML Output',
+  'RecordIdentificationStatus': 'Record Identification Status',
+  'IsAgentAssigned': 'Agent Assigned',
+  'PrimaryAttributeName': 'Primary Attribute',
+  'PrimaryAttributeValue': 'Primary Attribute Value',
+  'LiveWorkStreamName': 'Workstream',
+  'DisplayName': 'Display Name',
+  'QueueId': 'Queue ID'
+};
+
+function humanizeLabel(key) {
+  if (LABEL_MAP[key]) return LABEL_MAP[key];
+  // Convert camelCase / PascalCase to spaced words
+  return key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .replace(/^./, c => c.toUpperCase());
+}
+
+const STATUS_INDICATORS = {
+  'RI_ConfigMissing':            { text: 'Configuration Missing',       icon: '⚠', cls: 'si-warning' },
+  'RI_Success':                  { text: 'Record Identified',            icon: '✓', cls: 'si-success' },
+  'RI_Failed':                   { text: 'Failed',                       icon: '✗', cls: 'si-error' },
+  'RI_NotRequired':              { text: 'Not Required',                 icon: '—', cls: 'si-muted' },
+  'RI_NoUniqueRecordIdentified': { text: 'No Unique Record Identified',  icon: '✗', cls: 'si-error' }
+};
+
+function formatStatusValue(code) {
+  const s = STATUS_INDICATORS[code];
+  if (!s) return null;
+  return `<span class="status-ind ${s.cls}">${s.icon} ${escapeHtml(s.text)}</span>`;
+}
+
+function prettyPrintXml(xml) {
+  let formatted = '';
+  let indent = 0;
+  const tokens = xml.replace(/>\s*</g, '>\n<').split('\n');
+  tokens.forEach(line => {
+    line = line.trim();
+    if (!line) return;
+    if (line.match(/^<\//)) indent = Math.max(0, indent - 1);
+    formatted += '  '.repeat(indent) + line + '\n';
+    if (line.match(/^<[^/!?]/) && !line.match(/\/>$/) && !line.match(/<\/[^>]+>$/)) indent++;
+  });
+  return formatted.trim();
+}
+
+function formatXmlContent(str) {
+  // Unescape double-encoded quotes
+  const clean = str.replace(/\\"/g, '"');
+  // Check for labeled FetchXML blocks (e.g. "accountsFetchXml<fetch...>")
+  const labeledRegex = /(\w*[Ff]etch[Xx]ml\w*)\s*(<fetch[\s\S]*?<\/fetch>)/g;
+  const sections = [];
+  let m;
+  while ((m = labeledRegex.exec(clean)) !== null) {
+    sections.push({ label: m[1], xml: m[2] });
+  }
+  if (sections.length > 0) {
+    return sections.map(s =>
+      `<div class="xml-section"><div class="xml-label">${escapeHtml(humanizeLabel(s.label))}</div><pre class="xml-block"><code>${escapeHtml(prettyPrintXml(s.xml))}</code></pre></div>`
+    ).join('');
+  }
+  return `<pre class="xml-block"><code>${escapeHtml(prettyPrintXml(clean))}</code></pre>`;
+}
+
+function formatCommaSeparatedList(str) {
+  const items = str.split(',').map(s => s.trim()).filter(Boolean);
+  return `<div class="tag-list">${items.map(i => `<span class="tag">${escapeHtml(i)}</span>`).join('')}</div>`;
+}
+
+function isEmptyValue(v) {
+  if (v == null || v === '') return true;
+  if (typeof v === 'boolean' || typeof v === 'number') return false;
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (s === '' || s === '""' || s === '{}' || s === '[]' || s === 'null') return true;
+    try {
+      const p = JSON.parse(s);
+      if (p && typeof p === 'object') {
+        if (Array.isArray(p)) return p.length === 0;
+        return Object.values(p).every(x => x == null || x === '');
+      }
+    } catch {}
+    return false;
+  }
+  if (Array.isArray(v)) return v.length === 0;
+  if (typeof v === 'object') return Object.keys(v).length === 0 || Object.values(v).every(x => x == null || x === '');
+  return false;
+}
+
+function needsFullWidth(html) {
+  return html.includes('json-sub') || html.includes('xml-block') || html.includes('xml-section') || html.includes('tag-list');
+}
+
+function renderJsonObject(obj) {
+  const entries = Object.entries(obj).filter(([, v]) => !isEmptyValue(v));
+  if (!entries.length) return '<span class="empty">—</span>';
+  return `<div class="json-sub">${entries.map(([k, v]) => {
+    const rendered = formatSubValue(v);
+    if (needsFullWidth(rendered)) {
+      return `<div class="jkv-block"><div class="jk">${escapeHtml(humanizeLabel(k))}</div><div class="jv">${rendered}</div></div>`;
+    }
+    return `<span class="jk">${escapeHtml(humanizeLabel(k))}</span><span class="jv">${rendered}</span>`;
+  }).join('')}</div>`;
+}
+
+function renderJsonArray(arr) {
+  if (!arr.length) return '<span class="empty">—</span>';
+  return arr.filter(item => !isEmptyValue(item)).map(item => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) return renderJsonObject(item);
+    if (Array.isArray(item)) return renderJsonArray(item);
+    return formatSubValue(item);
+  }).join('');
+}
+
+function formatSubValue(v) {
+  if (v == null || v === '') return '<span class="empty">—</span>';
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  if (typeof v === 'number') return String(v);
+  if (Array.isArray(v)) return v.length ? renderJsonArray(v) : '<span class="empty">—</span>';
+  if (typeof v === 'object') return renderJsonObject(v);
+  const str = String(v);
+  // Status indicators (RI_ codes)
+  const statusHtml = formatStatusValue(str);
+  if (statusHtml) return statusHtml;
+  // Try nested JSON string FIRST (JSON arrays may contain XML strings)
+  try {
+    const p = JSON.parse(str);
+    if (p && typeof p === 'object') {
+      return Array.isArray(p) ? renderJsonArray(p) : renderJsonObject(p);
+    }
+  } catch {}
+  // XML/FetchXML detection (after JSON parse fails)
+  if (str.includes('<fetch') || (str.trim().startsWith('<') && str.trim().endsWith('>'))) {
+    return formatXmlContent(str);
+  }
+  // Comma-separated list (3+ items, no JSON/XML markers)
+  const commaCount = (str.match(/,/g) || []).length;
+  if (commaCount >= 2 && !str.includes('{') && !str.includes('<') && !str.includes('[')) {
+    return formatCommaSeparatedList(str);
+  }
+  return escapeHtml(str);
+}
+
+function formatDetailValue(val) {
+  if (val == null || val === '') return '<span class="empty">—</span>';
+  const str = String(val).trim();
+  if (str === '' || str === '""' || str === 'null') return '<span class="empty">—</span>';
+  // Status indicators (RI_ codes)
+  const statusHtml = formatStatusValue(str);
+  if (statusHtml) return statusHtml;
+  // Try to parse as JSON FIRST (JSON arrays may contain XML strings)
+  try {
+    const parsed = JSON.parse(str);
+    if (parsed && typeof parsed === 'object') {
+      return Array.isArray(parsed) ? renderJsonArray(parsed) : renderJsonObject(parsed);
+    }
+  } catch {}
+  // XML/FetchXML detection (after JSON parse fails)
+  if (str.includes('<fetch') || (str.startsWith('<') && str.endsWith('>'))) {
+    return formatXmlContent(str);
+  }
+  // Comma-separated list (3+ items, no JSON/XML markers)
+  const commaCount = (str.match(/,/g) || []).length;
+  if (commaCount >= 2 && !str.includes('{') && !str.includes('<') && !str.includes('[')) {
+    return formatCommaSeparatedList(str);
+  }
+  return escapeHtml(str);
+}
+
+// ── Side panel event delegation (capturing phase) ────────────────────────────
+window._expandedToggles = window._expandedToggles || {};
+document.getElementById('sidePanel').addEventListener('click', function(e) {
+  // Handle evidence toggle
+  const toggle = e.target.closest('[data-action="toggle-evidence"]');
+  if (toggle) {
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    const ev = toggle.nextElementSibling;
+    if (ev) {
+      const toggleId = toggle.getAttribute('data-toggle-id');
+      const isOpen = ev.classList.toggle('open');
+      if (toggleId) window._expandedToggles[toggleId] = isOpen;
+      toggle.textContent = isOpen ? '▾ Hide technical details' : '▸ Show technical details';
+    }
+    return;
+  }
+  // Handle card header toggle
+  const header = e.target.closest('[data-action="toggle-card"]');
+  if (header) {
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    const item = header.closest('.tl-item');
+    if (item) {
+      const toggleId = header.getAttribute('data-toggle-id');
+      const isOpen = item.classList.toggle('open');
+      if (toggleId) window._expandedToggles[toggleId] = isOpen;
+    }
+    return;
+  }
+}, true); // true = capturing phase, fires BEFORE any bubbling handlers
+
+// ── Keyboard ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+// ── Auto-load on page open ───────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  preloadFilterDropdowns();
+  loadFromDataverse();
+  initCopilotButton();
+});
+
+// ── Settings panel ───────────────────────────────────────────────────────────
+
+const ENV_VAR_AUTO_UPDATE  = 'alex_DiagnosticsAutoUpdate';
+const ENV_VAR_AUTO_REFRESH = 'alex_DiagnosticsAutoRefresh';
+
+function isEnvVarTrue(val) {
+  if (!val) return false;
+  const v = val.toLowerCase().trim();
+  return v === 'yes' || v === 'true' || v === '1';
+}
+
+function openSettings() {
+  loadSettings();
+  document.getElementById('settingsOverlay').classList.add('open');
+  document.getElementById('settingsPanel').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('open');
+  document.getElementById('settingsPanel').classList.remove('open');
+}
+
+async function loadSettings() {
+  const xrm = getXrm();
+  if (!xrm) {
+    // Demo mode defaults
+    document.getElementById('toggleAutoUpdate').checked = false;
+    document.getElementById('toggleAutoRefresh').checked = false;
+    document.getElementById('toggleShowCopilot').checked = false;
+    document.getElementById('toggleCopilotDefault').checked = false;
+    return;
+  }
+  try {
+    const [autoUpdate, autoRefresh, showCopilot, copilotDefault] = await Promise.all([
+      getEnvVarValue(xrm, ENV_VAR_AUTO_UPDATE),
+        getEnvVarValue(xrm, ENV_VAR_AUTO_REFRESH),
+      getEnvVarValue(xrm, ENV_VAR_SHOW_COPILOT),
+      getEnvVarValue(xrm, ENV_VAR_COPILOT_DEFAULT)
+    ]);
+    document.getElementById('toggleAutoUpdate').checked  = isEnvVarTrue(autoUpdate);
+    document.getElementById('toggleAutoRefresh').checked = isEnvVarTrue(autoRefresh);
+    document.getElementById('toggleShowCopilot').checked = isEnvVarTrue(showCopilot);
+    document.getElementById('toggleCopilotDefault').checked = isEnvVarTrue(copilotDefault);
+  } catch (e) {
+    console.warn('Failed to load settings:', e);
+  }
+}
+
+async function saveSettings() {
+  const xrm = getXrm();
+  if (!xrm) {
+    closeSettings();
+    return;
+  }
+  const btn = document.getElementById('btnSaveSettings');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const autoUpdateVal  = document.getElementById('toggleAutoUpdate').checked ? 'yes' : 'no';
+    const autoRefreshVal = document.getElementById('toggleAutoRefresh').checked ? 'yes' : 'no';
+    const showCopilotVal = document.getElementById('toggleShowCopilot').checked ? 'yes' : 'no';
+    const copilotDefaultVal = document.getElementById('toggleCopilotDefault').checked ? 'yes' : 'no';
+    console.log('[Settings] Saving:', ENV_VAR_AUTO_UPDATE, '=', autoUpdateVal, ',', ENV_VAR_AUTO_REFRESH, '=', autoRefreshVal, ',', ENV_VAR_SHOW_COPILOT, '=', showCopilotVal, ',', ENV_VAR_COPILOT_DEFAULT, '=', copilotDefaultVal);
+    await setEnvVarValue(xrm, ENV_VAR_AUTO_UPDATE, autoUpdateVal);
+      await setEnvVarValue(xrm, ENV_VAR_AUTO_REFRESH, autoRefreshVal);
+    await setEnvVarValue(xrm, ENV_VAR_SHOW_COPILOT, showCopilotVal);
+    await setEnvVarValue(xrm, ENV_VAR_COPILOT_DEFAULT, copilotDefaultVal);
+    console.log('[Settings] Saved successfully');
+    closeSettings();
+  } catch (e) {
+    console.error('[Settings] Save failed:', e);
+    closeSettings();
+    showError('Failed to save settings: ' + (e.message || JSON.stringify(e)));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save';
+  }
+}
+
+async function getEnvVarValue(xrm, schemaName) {
+  // Step 1: Get the definition (for its ID and default value)
+  let defId = null;
+  let defaultVal = 'No';
+  try {
+    const defResult = await xrm.WebApi.retrieveMultipleRecords(
+      'environmentvariabledefinition',
+      `?$select=environmentvariabledefinitionid,defaultvalue&$filter=schemaname eq '${schemaName}'&$top=1`
+    );
+    if (defResult.entities && defResult.entities.length > 0) {
+      defId = defResult.entities[0].environmentvariabledefinitionid;
+      defaultVal = defResult.entities[0].defaultvalue || 'No';
+    }
+  } catch (_) { /* definition not found */ }
+  if (!defId) return defaultVal;
+
+  // Step 2: Check for a value record (override) using the definition ID
+  try {
+    const valResult = await xrm.WebApi.retrieveMultipleRecords(
+      'environmentvariablevalue',
+      `?$select=value&$filter=_environmentvariabledefinitionid_value eq ${defId}&$top=1`
+    );
+    if (valResult.entities && valResult.entities.length > 0) {
+      return valResult.entities[0].value || defaultVal;
+    }
+  } catch (_) { /* no value record — use default */ }
+  return defaultVal;
+}
+
+async function setEnvVarValue(xrm, schemaName, newValue) {
+  // Get the definition ID
+  console.log('[Settings] Looking up definition for:', schemaName);
+  const defResult = await xrm.WebApi.retrieveMultipleRecords(
+    'environmentvariabledefinition',
+    `?$select=environmentvariabledefinitionid&$filter=schemaname eq '${schemaName}'&$top=1`
+  );
+  if (!defResult.entities || defResult.entities.length === 0) {
+    throw new Error(`Environment variable '${schemaName}' not found. Please create it in your solution.`);
+  }
+  const defId = defResult.entities[0].environmentvariabledefinitionid;
+  console.log('[Settings] Found definition:', defId);
+
+  // Check if a value record already exists
+  const valResult = await xrm.WebApi.retrieveMultipleRecords(
+    'environmentvariablevalue',
+    `?$select=environmentvariablevalueid&$filter=_environmentvariabledefinitionid_value eq ${defId}&$top=1`
+  );
+  if (valResult.entities && valResult.entities.length > 0) {
+    // Update existing
+    const valId = valResult.entities[0].environmentvariablevalueid;
+    console.log('[Settings] Updating existing value record:', valId, '→', newValue);
+    await xrm.WebApi.updateRecord('environmentvariablevalue', valId, { value: newValue });
+    console.log('[Settings] Updated successfully');
+  } else {
+    // Create new value record
+    console.log('[Settings] Creating new value record for def:', defId, '→', newValue);
+    const created = await xrm.WebApi.createRecord('environmentvariablevalue', {
+      value: newValue,
+      'EnvironmentVariableDefinitionId@odata.bind': `/environmentvariabledefinitions(${defId})`
+    });
+    console.log('[Settings] Created value record:', created.id);
+  }
+}
+
+// ── Panel resize ─────────────────────────────────────────────────────────────
+
+function initPanelResize(handleId, panelEl, { minWidth = 280, maxWidthPct = 0.7, onResize } = {}) {
+  const handle = document.getElementById(handleId);
+  if (!handle) return;
+  let startX, startW;
+
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    startX = e.clientX;
+    startW = panelEl.getBoundingClientRect().width;
+    panelEl.classList.add('resizing');
+    handle.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+
+  function onMouseMove(e) {
+    const maxW = window.innerWidth * maxWidthPct;
+    let newW = startW + (startX - e.clientX);
+    newW = Math.max(minWidth, Math.min(newW, maxW));
+    panelEl.style.width = newW + 'px';
+    if (onResize) onResize(newW);
+  }
+
+  function onMouseUp() {
+    panelEl.classList.remove('resizing');
+    handle.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+}
+
+(function setupResizeHandles() {
+  const sidePanel = document.getElementById('sidePanel');
+  const copilotPanel = document.getElementById('copilotPanel');
+  const layout = document.querySelector('.app-layout');
+
+  initPanelResize('sidePanelResize', sidePanel, {
+    minWidth: 360,
+    maxWidthPct: 0.6,
+    onResize: w => {
+      // Update offset if copilot is also open
+      if (copilotOpen && sidePanel.classList.contains('copilot-offset')) {
+        sidePanel.style.right = copilotPanel.getBoundingClientRect().width + 'px';
+      }
+    }
+  });
+
+  initPanelResize('copilotPanelResize', copilotPanel, {
+    minWidth: 300,
+    maxWidthPct: 0.5,
+    onResize: w => {
+      // Keep grid margin, header, filter-bar, and side-panel offset in sync
+      layout.style.marginRight = w + 'px';
+      document.querySelector('.header').style.marginRight = w + 'px';
+      document.querySelector('.filter-bar').style.marginRight = w + 'px';
+      if (sidePanel.classList.contains('copilot-offset')) {
+        sidePanel.style.right = w + 'px';
+      }
+    }
+  });
+})();
+
+// ── Copilot panel ────────────────────────────────────────────────────────────
+
+const BOT_SCHEMA_NAME = 'alex_routing_insight';
+const ENV_VAR_SHOW_COPILOT = 'alex_show_copilot';
+const ENV_VAR_COPILOT_DEFAULT = 'alex_show_copilot_default';
+let copilotInitialized = false;
+let copilotOpen = false;
+let _copilotInitializing = false;
+let _copilotEnabled = false;
+let _copilotSettings = null;
+const _copilotStyleOptions = {
+  accent: '#7c3aed',
+  backgroundColor: '#ffffff',
+  bubbleBackground: '#f4f5f7',
+  bubbleBorderColor: '#e8e9ee',
+  bubbleBorderRadius: 16,
+  bubbleBorderWidth: 1,
+  bubbleTextColor: '#1a1d27',
+  bubbleNubSize: 0,
+  bubbleNubOffset: 0,
+  bubbleFromUserBackground: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+  bubbleFromUserBorderColor: 'transparent',
+  bubbleFromUserBorderRadius: 16,
+  bubbleFromUserBorderWidth: 0,
+  bubbleFromUserTextColor: '#ffffff',
+  bubbleFromUserNubSize: 0,
+  bubbleFromUserNubOffset: 0,
+  sendBoxBackground: '#ffffff',
+  sendBoxTextColor: '#1a1d27',
+  sendBoxBorderTop: 'none',
+  sendBoxButtonColor: '#7c3aed',
+  sendBoxButtonColorOnFocus: '#6d28d9',
+  sendBoxButtonColorOnHover: '#6d28d9',
+  sendBoxHeight: 52,
+  sendBoxTextWrap: true,
+  hideUploadButton: true,
+  botAvatarInitials: 'RI',
+  botAvatarBackgroundColor: '#7c3aed',
+  userAvatarInitials: 'Me',
+  userAvatarBackgroundColor: '#4a6cf7',
+  avatarSize: 28,
+  avatarBorderRadius: 10,
+  fontSizeSmall: '12px',
+  primaryFont: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  markdownRespectCRLF: true,
+  groupTimestamp: 120000,
+  showAvatarInGroup: 'status',
+  timestampFormat: 'relative',
+  bubbleMinHeight: 32,
+  rootHeight: '100%',
+  rootWidth: '100%'
+};
+
+async function initCopilotButton() {
+  const xrm = getXrm();
+  if (!xrm) {
+    // Demo mode: show button anyway
+    _copilotEnabled = true;
+    document.getElementById('btnCopilot').classList.add('visible');
+    return;
+  }
+  try {
+    const showCopilot = await getEnvVarValue(xrm, ENV_VAR_SHOW_COPILOT);
+    if (isEnvVarTrue(showCopilot)) {
+      _copilotEnabled = true;
+      document.getElementById('btnCopilot').classList.add('visible');
+      // Check if Copilot should open by default
+      const openDefault = await getEnvVarValue(xrm, ENV_VAR_COPILOT_DEFAULT);
+      if (isEnvVarTrue(openDefault)) {
+        toggleCopilot();
+      }
+    }
+  } catch (e) {
+    console.warn('[Copilot] Failed to check copilot env vars:', e);
+  }
+}
+
+function isCopilotEnabled() {
+  return _copilotEnabled;
+}
+
+function toggleCopilot() {
+  copilotOpen = !copilotOpen;
+  const panel = document.getElementById('copilotPanel');
+  const btn = document.getElementById('btnCopilot');
+  const layout = document.querySelector('.app-layout');
+  const sidePanel = document.getElementById('sidePanel');
+  const header = document.querySelector('.header');
+  const filterBar = document.querySelector('.filter-bar');
+  if (copilotOpen) {
+    panel.classList.add('open');
+    btn.classList.add('active');
+    layout.classList.add('copilot-active');
+    if (sidePanel.classList.contains('open')) {
+      sidePanel.classList.add('copilot-offset');
+    }
+    // Sync widths after panel opens (accounts for user-resized width)
+    requestAnimationFrame(() => {
+      const w = panel.getBoundingClientRect().width;
+      layout.style.marginRight = w + 'px';
+      header.style.marginRight = w + 'px';
+      filterBar.style.marginRight = w + 'px';
+      if (sidePanel.classList.contains('open')) {
+        sidePanel.style.right = w + 'px';
+      }
+    });
+
+    if (!copilotInitialized && !_copilotInitializing) {
+      initCopilotChat();
+    }
+  } else {
+    panel.classList.remove('open');
+    btn.classList.remove('active');
+    layout.classList.remove('copilot-active');
+    sidePanel.classList.remove('copilot-offset');
+    layout.style.marginRight = '';
+    header.style.marginRight = '';
+    filterBar.style.marginRight = '';
+    sidePanel.style.right = '';
+  }
+}
+
+/**
+ * Walk the DOM from #copilotWebChat down to [role="log"] and [role="form"].
+ * Force every element in the chain to be a proper flex column so the send box
+ * stays visible at the bottom and the transcript scrolls.
+ */
+function fixWebChatLayout(root) {
+  if (!root) return;
+  const form = root.querySelector('[role="form"]') || root.querySelector('.webchat__send-box');
+  const log = root.querySelector('[role="log"]') || root.querySelector('.webchat__basic-transcript');
+  if (!form && !log) { console.log('[Copilot] WebChat DOM not ready, retrying...'); setTimeout(() => fixWebChatLayout(root), 500); return; }
+
+  // Walk from root down to log, making every ancestor a flex column
+  let el = log || form;
+  while (el && el !== root) {
+    const parent = el.parentElement;
+    if (parent && parent !== root) {
+      parent.style.cssText += ';display:flex!important;flex-direction:column!important;flex:1 1 0%!important;min-height:0!important;overflow:hidden!important;';
+    }
+    el = parent;
+  }
+  // Root itself
+  root.style.cssText += ';display:flex!important;flex-direction:column!important;flex:1 1 0%!important;min-height:0!important;overflow:hidden!important;';
+
+  // Log: scrollable, fills space
+  if (log) {
+    log.style.cssText += ';flex:1 1 0%!important;min-height:0!important;overflow-y:auto!important;';
+  }
+
+  // Form/send box and its ancestors up to the complementary wrapper: don't grow
+  if (form) {
+    let fEl = form;
+    const comp = root.querySelector('[role="complementary"]') || root.firstElementChild;
+    while (fEl && fEl !== comp && fEl !== root) {
+      fEl.style.cssText += ';flex:0 0 auto!important;overflow:visible!important;';
+      fEl = fEl.parentElement;
+    }
+  }
+
+  // Place working indicator inside WebChat layout, just above the send box
+  // (only if it hasn't already been placed there)
+  const indicator = document.getElementById('copilotWorking');
+  if (indicator && form && form.parentElement && indicator.parentElement !== form.parentElement) {
+    form.parentElement.insertBefore(indicator, form);
+  }
+
+  console.log('[Copilot] WebChat layout fixed via DOM walk');
+}
+
+// ── V3: Routing Story → Copilot context bridge ──────────────────────────────
+// Exposes the active Direct Line connection so the "Ask Copilot" button can
+// inject the currently-selected routing conversation GUID into the existing
+// chat session (no Web Chat restart, no chat clear).
+let _pendingRoutingGuid = null;
+let _pendingCopilotMessage = null;
+// Registry of contextual prompts (per timeline event id) so onclick can be a short token.
+const _copilotEventPrompts = {};
+
+// ── Working indicator management ─────────────────────────────────────────────
+let _workingTimers = [];
+let _connectionSub = null;
+let _copilotWaiting = false;
+let _botMessageObserver = null;
+
+function _showWorkingIndicator() {
+  _clearWorkingTimers();
+  _copilotWaiting = true;
+  const el = document.getElementById('copilotWorking');
+  const txt = document.getElementById('copilotWorkingText');
+  if (!el || !txt) return;
+  txt.textContent = 'Analyzing \u2026';
+  el.classList.add('visible');
+
+  _workingTimers.push(setTimeout(() => {
+    txt.textContent = 'Still working \u2026';
+  }, 20000));
+
+  _workingTimers.push(setTimeout(() => {
+    txt.textContent = 'This is taking longer than usual, I\u2019m still here\u2026';
+  }, 60000));
+
+  // Safety: never stay visible for more than 3 minutes
+  _workingTimers.push(setTimeout(() => _hideWorkingIndicator(), 180000));
+}
+
+function _hideWorkingIndicator() {
+  _copilotWaiting = false;
+  _clearWorkingTimers();
+  const el = document.getElementById('copilotWorking');
+  if (el) el.classList.remove('visible');
+}
+
+function _clearWorkingTimers() {
+  _workingTimers.forEach(t => clearTimeout(t));
+  _workingTimers = [];
+}
+
+// Intercept Web Chat send-box submissions to show the working indicator
+// for messages the user types manually (not via our sendMessage wrapper).
+function _interceptWebChatSend(root) {
+  if (!root) return;
+  // Capture-phase listener on form submit and send button click
+  root.addEventListener('submit', () => {
+    if (!_copilotWaiting) _showWorkingIndicator();
+  }, true);
+  root.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !_copilotWaiting) {
+      const input = root.querySelector('.webchat__send-box-text-box__input');
+      if (input && input.value && input.value.trim()) _showWorkingIndicator();
+    }
+  }, true);
+}
+
+// Observe the Web Chat DOM for newly-rendered bot message bubbles.
+// This is more reliable than subscribing to activity$ which may not
+// deliver bot activities to external subscribers with the Copilot Studio SDK.
+function _setupBotMessageObserver(container) {
+  if (_botMessageObserver) { _botMessageObserver.disconnect(); _botMessageObserver = null; }
+  if (!container) return;
+
+  _botMessageObserver = new MutationObserver((mutations) => {
+    if (!_copilotWaiting) return;
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        // A bot bubble is a stacked-layout that is NOT from the user
+        const isBotBubble = node.classList &&
+          node.classList.contains('webchat__stacked-layout') &&
+          !node.classList.contains('webchat__stacked-layout--from-user');
+        const hasBotBubble = !isBotBubble && node.querySelector &&
+          node.querySelector('.webchat__stacked-layout:not(.webchat__stacked-layout--from-user)');
+        if (isBotBubble || hasBotBubble) {
+          _hideWorkingIndicator();
+          return;
+        }
+      }
+    }
+  });
+
+  _botMessageObserver.observe(container, { childList: true, subtree: true });
+  console.log('[Copilot] Bot message observer attached');
+}
+
+function _exposeRoutingCopilot(directLine) {
+  window.routingCopilot = window.routingCopilot || {};
+  window.routingCopilot.directLine = directLine;
+
+  // Clean up previous subscriptions
+  if (_connectionSub) { try { _connectionSub.unsubscribe(); } catch(e) {} }
+  _hideWorkingIndicator();
+
+  // NOTE: We intentionally do NOT subscribe to directLine.activity$.
+  // The Copilot Studio SDK adapter may not reliably deliver bot activities
+  // to external subscribers, and subscribing can cause side-effects like
+  // duplicate welcome messages. Instead, we use a MutationObserver on the
+  // Web Chat DOM to detect rendered bot responses (see _setupBotMessageObserver).
+
+  // Subscribe to connection status — hide indicator on failure/end
+  if (directLine.connectionStatus$) {
+    _connectionSub = directLine.connectionStatus$.subscribe(status => {
+      // 3 = ExpiredToken, 4 = FailedToConnect, 5 = Ended
+      if (status >= 3) {
+        _hideWorkingIndicator();
+      }
+    });
+  }
+
+  // Send an arbitrary message activity into the existing conversation.
+  window.routingCopilot.sendMessage = function (text) {
+    if (!text || !directLine || typeof directLine.postActivity !== 'function') return false;
+    try {
+      _showWorkingIndicator();
+      directLine.postActivity({
+        type: 'message',
+        text: text,
+        from: { id: 'user', role: 'user' }
+      }).subscribe(
+        id => console.log('[Copilot] Message sent, activity id:', id),
+        err => {
+          console.error('[Copilot] Failed to send message:', err);
+          _hideWorkingIndicator();
+        }
+      );
+      return true;
+    } catch (e) {
+      console.error('[Copilot] sendMessage threw:', e);
+      _hideWorkingIndicator();
+      return false;
+    }
+  };
+
+  // Backwards-compatible: top "Ask Copilot" button uses this short template.
+  window.routingCopilot.sendRoutingContext = function (guid) {
+    if (!guid) return false;
+    return window.routingCopilot.sendMessage('Analyze routing conversation: ' + guid);
+  };
+
+  // Flush anything queued before Direct Line was ready.
+  if (_pendingCopilotMessage) {
+    const msg = _pendingCopilotMessage;
+    _pendingCopilotMessage = null;
+    setTimeout(() => window.routingCopilot.sendMessage(msg), 250);
+  } else if (_pendingRoutingGuid) {
+    const g = _pendingRoutingGuid;
+    _pendingRoutingGuid = null;
+    setTimeout(() => window.routingCopilot.sendRoutingContext(g), 250);
+  }
+}
+
+function _ensureCopilotOpenThenSend(sendFn, queueFn) {
+  if (!copilotOpen) {
+    toggleCopilot();
+  }
+  if (window.routingCopilot && typeof window.routingCopilot.sendMessage === 'function' && copilotInitialized) {
+    sendFn();
+  } else {
+    queueFn();
+  }
+}
+
+// Grid row Copilot icon — shortcut to ask Copilot about a row without opening the panel.
+window.askCopilotFromGrid = function (conversationId, ev) {
+  if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+  if (!conversationId || !isCopilotEnabled()) return;
+  _ensureCopilotOpenThenSend(
+    () => window.routingCopilot.sendRoutingContext(conversationId),
+    () => {
+      _pendingRoutingGuid = conversationId;
+      console.log('[Copilot] Queued routing context from grid row:', conversationId);
+    }
+  );
+};
+
+// Top "Ask Copilot" button — generic context handoff with just the GUID.
+window.askCopilotAboutCurrent = function (guid) {
+  if (!guid || !isCopilotEnabled()) return;
+  _ensureCopilotOpenThenSend(
+    () => window.routingCopilot.sendRoutingContext(guid),
+    () => {
+      _pendingRoutingGuid = guid;
+      console.log('[Copilot] Queued routing context for delivery once Direct Line is ready:', guid);
+    }
+  );
+};
+
+// Generic: send a fully-formed natural-language message to the current chat.
+window.askCopilotWithMessage = function (text) {
+  if (!text || !isCopilotEnabled()) return;
+  _ensureCopilotOpenThenSend(
+    () => window.routingCopilot.sendMessage(text),
+    () => {
+      _pendingCopilotMessage = text;
+      console.log('[Copilot] Queued contextual message for delivery once Direct Line is ready.');
+    }
+  );
+};
+
+// Contextual button on problem timeline cards — looks up the pre-built prompt.
+window.askCopilotForEvent = function (evtId, ev) {
+  if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+  const prompt = _copilotEventPrompts[evtId];
+  if (!prompt) {
+    console.warn('[Copilot] No prompt registered for event', evtId);
+    return;
+  }
+  window.askCopilotWithMessage(prompt);
+};
+
+// Build a natural-language prompt for a problematic timeline event.
+function buildContextualCopilotPrompt(evt, conversationId) {
+  const eventType = evt.eventType;
+  const resultText = (evt.resultChip && evt.resultChip.text) || '';
+  const guidPart = conversationId ? ' Routing item ID: ' + conversationId + '.' : '';
+  switch (eventType) {
+    case 'agent-selected':
+      return 'Can you explain why the assignment to the agent failed in this routing item?' + guidPart +
+        ' Focus on assignment criteria, required skills, capacity, presence, queue, and why no agent matched.';
+    case 'record-identification':
+      if (/config/i.test(resultText)) {
+        return 'Can you explain why record identification configuration is missing for this routing item?' + guidPart +
+          ' Focus on the workstream record identification configuration and what should be checked.';
+      }
+      return 'Can you explain why record identification did not find a matching record in this routing item?' + guidPart +
+        ' Focus on the identification rules, query output, and available routing context.';
+    case 'queue-routing':
+      return 'Can you explain why this routing item was routed to the default queue?' + guidPart +
+        ' Focus on route-to-queue rules, missing or unmatched conditions, and why the fallback or default queue was selected.';
+    case 'classification':
+      return 'Can you explain the classification result for this routing item?' + guidPart +
+        ' Focus on matched rules, produced skills, priority, capacity profile, and how classification affected routing.';
+    default:
+      return 'Can you explain the "' + (evt.label || eventType) + '" issue in this routing item?' + guidPart +
+        (resultText ? ' The current result is "' + resultText + '".' : '') +
+        ' Focus on the root cause and what should be checked.';
+  }
+}
+
+// True for events that should expose a contextual "Ask Copilot" button.
+function shouldShowContextualCopilot(evt) {
+  if (!evt) return false;
+  if (evt.severity === 'error') return true;
+  if (evt.severity === 'warning' && evt.eventType !== 'bot-escalated') return true;
+  return false;
+}
+
+async function initCopilotChat() {
+  if (_copilotInitializing) {
+    console.log('[Copilot] Init already in progress, skipping duplicate call');
+    return;
+  }
+  _copilotInitializing = true;
+  const container = document.getElementById('copilotWebChat');
+  container.innerHTML = '<div class="copilot-loading"><div class="cp-spinner"></div>Connecting to Routing Insight (SSO)\u2026</div>';
+
+  const xrm = getXrm();
+  if (!xrm) {
+    _copilotInitializing = false;
+    container.innerHTML = '<div class="copilot-error"><span class="ce-icon">\u26A0</span>Copilot is not available in demo mode.<br>Deploy to D365 to use.</div>';
+    return;
+  }
+
+  try {
+    // 1. Gather settings from Dataverse context
+    const tenantId = xrm.Utility.getGlobalContext().organizationSettings.organizationTenant;
+    const environmentId = xrm.Utility.getGlobalContext().organizationSettings.bapEnvironmentId;
+    const appClientId = await getCopilotClientId(xrm);
+    if (!appClientId) {
+      throw new Error("Environment variable 'alex_AppClientId' is not configured.");
+    }
+
+    // 2. Acquire SSO token via MSAL
+    const token = await acquireCopilotToken(appClientId, tenantId, xrm);
+
+    // 3. Connect to Copilot Studio via M365 Agents SDK
+    const { CopilotStudioClient, CopilotStudioWebChat } = await import('@microsoft/agents-copilotstudio-client');
+
+    _copilotSettings = { appClientId, tenantId, environmentId, agentIdentifier: BOT_SCHEMA_NAME };
+    const client = new CopilotStudioClient(_copilotSettings, token);
+    await client.startConversationAsync(true);
+
+    const directLine = CopilotStudioWebChat.createConnection(client, { typingIndicator: true });
+
+    // 4. Render WebChat FIRST, then expose Direct Line.
+    container.innerHTML = '';
+
+    window.WebChat.renderWebChat({
+      directLine: directLine,
+      locale: 'en-US',
+      styleOptions: _copilotStyleOptions
+    }, container);
+
+    // Now expose Direct Line (sendMessage, connectionStatus$ only)
+    _exposeRoutingCopilot(directLine);
+
+    copilotInitialized = true;
+    _copilotInitializing = false;
+    console.log('[Copilot] Routing Insight Copilot initialized successfully');
+    // Fix WebChat layout after render — walk the DOM chain to ensure the send box is visible
+    setTimeout(() => {
+      fixWebChatLayout(container);
+      _interceptWebChatSend(container);
+      _setupBotMessageObserver(container);
+    }, 500);
+
+  } catch (err) {
+    console.error('[Copilot] Failed to initialize:', err);
+    _copilotInitializing = false;
+    container.innerHTML = `<div class="copilot-error"><span class="ce-icon">\u26A0</span>Failed to connect:<br>${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function resetCopilot() {
+  copilotInitialized = false;
+  _copilotInitializing = false;
+  _hideWorkingIndicator();
+  if (_botMessageObserver) { _botMessageObserver.disconnect(); _botMessageObserver = null; }
+  let container = document.getElementById('copilotWebChat');
+  
+  // Safely destroy the old container to flush React's DOM cache
+  // First, rescue the working indicator if it was moved into the old container
+  const indicator = document.getElementById('copilotWorking');
+  const panelBody = document.querySelector('.copilot-panel-body');
+  if (indicator && panelBody && indicator.parentElement !== panelBody.parentElement) {
+    panelBody.parentElement.appendChild(indicator);
+  }
+  const newContainer = document.createElement('div');
+  newContainer.id = 'copilotWebChat';
+  newContainer.innerHTML = '<div class="copilot-loading"><div class="cp-spinner"></div>Starting new conversation\u2026</div>';
+  container.parentNode.replaceChild(newContainer, container);
+  container = newContainer;
+
+  try {
+    // Reuse cached token and settings — only create new client + WebChat
+    const xrm = getXrm();
+    if (!xrm) return;
+    const token = await acquireCopilotToken(null, null, xrm);
+    const { CopilotStudioClient, CopilotStudioWebChat } = await import('@microsoft/agents-copilotstudio-client');
+    const client = new CopilotStudioClient(_copilotSettings, token);
+    await client.startConversationAsync(true);
+    const directLine = CopilotStudioWebChat.createConnection(client, { typingIndicator: true });
+    container.innerHTML = '';
+    window.WebChat.renderWebChat({ directLine, locale: 'en-US', styleOptions: _copilotStyleOptions }, container);
+    _exposeRoutingCopilot(directLine);
+    copilotInitialized = true;
+    console.log('[Copilot] Conversation reset successfully');
+    setTimeout(() => {
+      fixWebChatLayout(container);
+      _interceptWebChatSend(container);
+      _setupBotMessageObserver(container);
+    }, 500);
+  } catch (err) {
+    console.error('[Copilot] Reset failed:', err);
+    container.innerHTML = `<div class="copilot-error"><span class="ce-icon">\u26A0</span>Failed to reconnect:<br>${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function getCopilotClientId(xrm) {
+  // Read from environmentvariablevalue by schemaname (same pattern as existing code)
+  try {
+    const result = await xrm.WebApi.retrieveMultipleRecords(
+      'environmentvariablevalue',
+      "?$filter=schemaname eq 'alex_AppClientId'&$select=value&$top=1"
+    );
+    if (result.entities && result.entities.length > 0) {
+      return result.entities[0].value;
+    }
+  } catch (_) { /* fall through */ }
+  return null;
+}
+
+async function acquireCopilotToken(clientId, tenantId, xrm) {
+  // Reuse cached MSAL instance if available
+  if (!window._copilotMsal) {
+    window._copilotMsal = new window.msal.PublicClientApplication({
+      auth: {
+        clientId: clientId,
+        authority: `https://login.microsoftonline.com/${tenantId}`,
+        redirectUri: window.location.origin,
+        navigateToLoginRequestUrl: false
+      },
+      cache: {
+        cacheLocation: 'sessionStorage',
+        storeAuthStateInCookie: true
+      }
+    });
+    await window._copilotMsal.initialize();
+    // Cache login hint
+    const userId = xrm.Utility.getGlobalContext().userSettings.userId.replace('{','').replace('}','');
+    const userRecord = await xrm.WebApi.retrieveRecord('systemuser', userId, '?$select=domainname');
+    window._copilotLoginHint = userRecord.domainname;
+  }
+
+  const msalInstance = window._copilotMsal;
+  const username = window._copilotLoginHint;
+  console.log('[Copilot] SSO login hint:', username);
+
+  const loginRequest = {
+    scopes: ['https://api.powerplatform.com/.default'],
+    redirectUri: window.location.origin,
+    loginHint: username
+  };
+
+  // Attempt 1: SSO Silent
+  try {
+    console.log('[Copilot] Attempting ssoSilent');
+    const response = await msalInstance.ssoSilent(loginRequest);
+    if (response?.accessToken) {
+      console.log('[Copilot] ssoSilent succeeded');
+      return response.accessToken;
+    }
+  } catch (e) {
+    console.warn('[Copilot] ssoSilent failed:', e);
+    if (!(e instanceof window.msal.InteractionRequiredAuthError)) throw e;
+  }
+
+  // Attempt 2: Interactive popup
+  console.log('[Copilot] Falling back to interactive login');
+  const response = await msalInstance.loginPopup(loginRequest);
+  if (response?.accessToken) {
+    console.log('[Copilot] Interactive login succeeded');
+    return response.accessToken;
+  }
+
+  throw new Error('Failed to acquire SSO token.');
+}
+
+// ── Demo data ────────────────────────────────────────────────────────────────
+function getDemoData() {
+  return [
+    { conversationId: 'edb95d19-68f6-4837-9a5e-257f530b04f4', diagnosticItem: 'My Coffee Maker has stopped working', routingStatus: 'Agent assignment - completed', routingStartedOn: '2026-05-19T04:15:00Z', routingDuration: 55, workstream: 'CCD Record Workstream', queue: 'CCD USA Entity Support Queue', assignedAgent: 'Eugene Spelmann', channel: 'Record', overallStatus: 'Completed', stageDetails: [
+      { name: 'Intake', status: 'completed', output: 'CCD Record Workstream', start: '2026-05-19T04:15:00Z', duration: 0, details: { Rule: 'Default intake rule', Workstream: 'CCD Record Workstream', 'Record Type': 'Case' } },
+      { name: 'Classification', status: 'completed', output: 'Skills: —, —, —', start: '2026-05-19T04:16:00Z', duration: 0, details: { 'Rule Set': 'Case Classification', 'Hit Policy': 'Run All' } },
+      { name: 'Route to queue', status: 'completed', output: 'CCD USA Entity Support Queue', start: '2026-05-19T04:16:00Z', duration: 0, details: { 'Rule Set': 'Case Queue Rules', 'Matched Rule': 'USA Region Cases' } },
+      { name: 'Prioritization', status: 'completed', output: 'Conversation.Case.Created On', start: '2026-05-19T04:16:00Z', duration: 0, details: { 'Priority Score': '0' } },
+      { name: 'Assignment selection', status: 'completed', output: 'Assignment by Priority', start: '2026-05-19T04:16:00Z', duration: 0, details: null },
+      { name: 'Assignment', status: 'completed', output: 'Round robin', start: '2026-05-19T04:16:00Z', duration: 0, details: { Method: 'Round Robin', Agent: 'Eugene Spelmann', Presence: 'AVAILABLE', Capacity: '70 units' } }
+    ]},
+    { conversationId: 'a1b2c3d4-1111-2222-3333-444455556666', diagnosticItem: 'Visitor: CCD Messaging Workstream', routingStatus: 'Agent assignment - completed', routingStartedOn: '2026-05-19T13:37:00Z', routingDuration: 1, workstream: 'CCD Messaging Workstream', queue: 'CCD UK Chat Support Queue', assignedAgent: 'Eugene Spelmann', channel: 'LiveChat', overallStatus: 'Completed', stageDetails: [
+      { name: 'Intake', status: 'completed', output: 'CCD Messaging Workstream', start: '2026-05-19T13:37:00Z', duration: 0, details: null },
+      { name: 'Route to queue', status: 'completed', output: 'CCD UK Chat Support Queue', start: '2026-05-19T13:37:00Z', duration: 1, details: { 'Rule Set': 'Region-Based Routing', 'Matched Rule': 'UK Visitors' } },
+      { name: 'Assignment', status: 'completed', output: 'Eugene Spelmann', start: '2026-05-19T13:37:01Z', duration: 0, details: { Method: 'Highest Capacity', Presence: 'AVAILABLE' } }
+    ]},
+    { conversationId: 'c3d4e5f6-3333-4444-5555-666677778888', diagnosticItem: 'Visitor: CCD Messaging Workstream', routingStatus: 'Agent assignment - completed', routingStartedOn: '2026-05-19T12:23:00Z', routingDuration: 152, workstream: 'CCD Messaging Workstream', queue: 'CCD USA Chat Support Queue', assignedAgent: 'Eugene Spelmann', channel: 'LiveChat', overallStatus: 'Completed', stageDetails: [
+      { name: 'Intake', status: 'completed', output: 'CCD Messaging Workstream', start: '2026-05-19T12:23:00Z', duration: 0, details: null },
+      { name: 'Route to queue', status: 'completed', output: 'CCD USA Chat Support Queue', start: '2026-05-19T12:23:01Z', duration: 0, details: null },
+      { name: 'Assignment', status: 'completed', output: 'Eugene Spelmann', start: '2026-05-19T12:25:33Z', duration: 152, details: { Method: 'Highest Capacity', Note: 'Long wait — all agents at capacity' } }
+    ]},
+    { conversationId: 'f6a7b8c9-6666-7777-8888-999900001111', diagnosticItem: 'Billing issue with subscription renewal', routingStatus: 'Workstream: Route-to-queue rules', routingStartedOn: '2026-05-20T09:42:00Z', routingDuration: 0, workstream: 'CCD Record Workstream', queue: '', assignedAgent: '', channel: 'Record', overallStatus: 'In Progress', stageDetails: [
+      { name: 'Intake', status: 'completed', output: 'CCD Record Workstream', start: '2026-05-20T09:42:00Z', duration: 0, details: null },
+      { name: 'Classification', status: 'completed', output: 'Billing, Renewal', start: '2026-05-20T09:42:00Z', duration: 1, details: null },
+      { name: 'Route to queue', status: 'in-progress', output: '—', start: '2026-05-20T09:42:01Z', duration: null, details: null }
+    ]},
+    { conversationId: 'a7b8c9d0-7777-8888-9999-000011112222', diagnosticItem: 'Refund not received for order #44821', routingStatus: 'Assignment - failed', routingStartedOn: '2026-05-20T08:11:00Z', routingDuration: 34, workstream: 'CCD Record Workstream', queue: 'Billing & Payment', assignedAgent: '', channel: 'Record', overallStatus: 'Failed', stageDetails: [
+      { name: 'Intake', status: 'completed', output: 'CCD Record Workstream', start: '2026-05-20T08:11:00Z', duration: 0, details: null },
+      { name: 'Classification', status: 'completed', output: 'Billing', start: '2026-05-20T08:11:01Z', duration: 0, details: null },
+      { name: 'Route to queue', status: 'completed', output: 'Billing & Payment', start: '2026-05-20T08:11:01Z', duration: 1, details: null },
+      { name: 'Prioritization', status: 'completed', output: 'High', start: '2026-05-20T08:11:02Z', duration: 0, details: null },
+      { name: 'Assignment selection', status: 'completed', output: 'Highest Capacity', start: '2026-05-20T08:11:02Z', duration: 0, details: null },
+      { name: 'Assignment', status: 'failed', output: 'No agents available', start: '2026-05-20T08:11:02Z', duration: 32, details: { Reason: 'No agents available with required capacity', 'Retry Attempts': '3' } }
+    ]}
+  ].map(normalizeRecord);
+}
+    </script>
+</body>
+</html>

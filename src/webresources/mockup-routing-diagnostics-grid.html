@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Routing Diagnostics — Grid Mockup</title>
+    <style>
+        :root {
+            --bg: #f4f5f7;
+            --surface: #ffffff;
+            --surface-hover: #f0f1f4;
+            --border: #d8dbe3;
+            --text: #1a1d27;
+            --text-muted: #5c6078;
+            --text-dim: #8b8fa3;
+            --accent: #4a6cf7;
+            --accent-dim: rgba(74,108,247,0.10);
+            --success: #16a34a;
+            --success-dim: rgba(22,163,74,0.10);
+            --warning: #ca8a04;
+            --warning-dim: rgba(202,138,4,0.10);
+            --error: #dc2626;
+            --error-dim: rgba(220,38,38,0.10);
+            --info: #2563eb;
+            --info-dim: rgba(37,99,235,0.10);
+            --purple: #7c3aed;
+            --purple-dim: rgba(124,58,237,0.10);
+            --radius: 8px;
+            --font: 'Segoe UI', -apple-system, sans-serif;
+            --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 200;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+
+        .header .logo {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+
+        .mockup-badge {
+            padding: 4px 10px;
+            background: var(--warning-dim);
+            color: var(--warning);
+            border: 1px solid var(--warning);
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            margin-left: auto;
+        }
+
+        /* ── Filters ── */
+        .filter-bar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: flex-end;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-group label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .filter-group select,
+        .filter-group input[type="date"] {
+            font-family: var(--font);
+            font-size: 13px;
+            padding: 8px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            min-width: 160px;
+            cursor: pointer;
+        }
+
+        .filter-group select:focus,
+        .filter-group input[type="date"]:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim);
+        }
+
+        .date-range-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .date-range-row span {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .date-inputs {
+            display: none;
+            margin-top: 6px;
+        }
+
+        .date-inputs.visible {
+            display: flex;
+        }
+
+        .btn-retrieve {
+            padding: 9px 24px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius);
+            font-family: var(--font);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s;
+        }
+
+        .btn-retrieve:hover {
+            background: #3a5ce5;
+        }
+
+        .btn-retrieve:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ── Stats bar ── */
+        .stats-bar {
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 12px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+        }
+
+        .stats-bar .stat-val {
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .stats-bar .stat-label {
+            margin-left: 4px;
+        }
+
+        /* ── Grid ── */
+        .grid-container {
+            padding: 0 24px 24px;
+        }
+
+        .grid-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 0;
+        }
+
+        .grid-table thead th {
+            position: sticky;
+            top: 53px;
+            z-index: 100;
+            background: var(--surface);
+            padding: 10px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            text-align: left;
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        .grid-table thead th.sortable {
+            cursor: pointer;
+        }
+
+        .grid-table thead th.sortable:hover {
+            color: var(--accent);
+        }
+
+        .grid-table thead th .sort-icon {
+            font-size: 9px;
+            margin-left: 4px;
+            opacity: 0.4;
+        }
+
+        .grid-table tbody tr {
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+
+        .grid-table tbody tr:hover {
+            background: var(--surface-hover);
+        }
+
+        .grid-table tbody tr.selected {
+            background: var(--accent-dim);
+        }
+
+        .grid-table tbody td {
+            padding: 11px 14px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .grid-table tbody td.item-name {
+            color: var(--accent);
+            font-weight: 500;
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .grid-table tbody td.mono {
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        .grid-table tbody td .expand-arrow {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: var(--text-dim);
+            transition: color 0.15s, background 0.15s, transform 0.2s;
+        }
+
+        .grid-table tbody tr:hover .expand-arrow {
+            color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .grid-table tbody tr.selected .expand-arrow {
+            color: var(--accent);
+            transform: rotate(180deg);
+        }
+
+        /* ── Status pills ── */
+        .status-pill {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-pill.completed {
+            background: var(--success-dim);
+            color: var(--success);
+        }
+
+        .status-pill.in-progress {
+            background: var(--warning-dim);
+            color: var(--warning);
+        }
+
+        .status-pill.failed {
+            background: var(--error-dim);
+            color: var(--error);
+        }
+
+        .status-pill.pending {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        /* ── Side panel ── */
+        .panel-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.35);
+            z-index: 300;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .panel-overlay.open {
+            display: block;
+            opacity: 1;
+        }
+
+        .side-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 640px;
+            height: 100vh;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            box-shadow: -8px 0 40px rgba(0,0,0,0.15);
+            z-index: 310;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .side-panel.open {
+            transform: translateX(0);
+        }
+
+        /* ── Panel hero header ── */
+        .panel-hero {
+            flex-shrink: 0;
+            padding: 20px 24px 16px;
+            background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 60%);
+            border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+
+        .panel-hero-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .panel-hero .panel-overline {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+
+        .panel-hero .panel-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.35;
+        }
+
+        .panel-hero .panel-status-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .panel-close {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: var(--surface);
+            color: var(--text-dim);
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 8px;
+            flex-shrink: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            transition: color 0.15s, background 0.15s;
+        }
+
+        .panel-close:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        /* ── Progress tracker (horizontal) ── */
+        .progress-tracker {
+            display: flex;
+            align-items: flex-start;
+            padding: 16px 24px 20px;
+            gap: 0;
+            flex-shrink: 0;
+            overflow-x: auto;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+        }
+
+        .pt-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            min-width: 0;
+            position: relative;
+        }
+
+        .pt-step .pt-connector {
+            position: absolute;
+            top: 15px;
+            left: calc(50% + 16px);
+            right: calc(-50% + 16px);
+            height: 2px;
+            background: var(--border);
+            z-index: 0;
+        }
+
+        .pt-step .pt-connector.done {
+            background: var(--success);
+        }
+
+        .pt-step:last-child .pt-connector {
+            display: none;
+        }
+
+        .pt-node {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            z-index: 1;
+            flex-shrink: 0;
+            transition: transform 0.2s;
+        }
+
+        .pt-node.completed {
+            background: var(--success-dim);
+            color: var(--success);
+            border: 2px solid var(--success);
+        }
+
+        .pt-node.failed {
+            background: var(--error-dim);
+            color: var(--error);
+            border: 2px solid var(--error);
+        }
+
+        .pt-node.in-progress {
+            background: var(--warning-dim);
+            color: var(--warning);
+            border: 2px solid var(--warning);
+            animation: pulseNode 2s ease infinite;
+        }
+
+        .pt-node.pending {
+            background: var(--bg);
+            color: var(--text-dim);
+            border: 2px solid var(--border);
+        }
+
+        @keyframes pulseNode {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(251,191,36,0.3); }
+            50% { box-shadow: 0 0 0 6px rgba(251,191,36,0); }
+        }
+
+        .pt-label {
+            margin-top: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.2;
+            max-width: 72px;
+            word-wrap: break-word;
+        }
+
+        .pt-step.active .pt-label {
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        .panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        /* ── KPI row ── */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .kpi-card {
+            background: var(--surface);
+            padding: 14px 16px;
+            text-align: center;
+        }
+
+        .kpi-card .kpi-val {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1;
+        }
+
+        .kpi-card .kpi-val.success { color: var(--success); }
+        .kpi-card .kpi-val.error { color: var(--error); }
+        .kpi-card .kpi-val.warning { color: var(--warning); }
+        .kpi-card .kpi-val.accent { color: var(--accent); }
+
+        .kpi-card .kpi-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-top: 4px;
+        }
+
+        /* ── Detail sections ── */
+        .detail-section {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .detail-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .detail-section-title .ds-icon {
+            font-size: 14px;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .detail-item {
+            padding: 10px 14px;
+            background: var(--bg);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+        }
+
+        .detail-item .di-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .detail-item .di-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            margin-top: 3px;
+            word-break: break-all;
+        }
+
+        .detail-item .di-value.link { color: var(--accent); }
+        .detail-item .di-value.mono { font-family: var(--mono); font-size: 11px; }
+        .detail-item.full { grid-column: 1 / -1; }
+
+        /* ── Stage cards (vertical timeline) ── */
+        .stage-timeline {
+            position: relative;
+            padding-left: 28px;
+        }
+
+        .stage-timeline::before {
+            content: '';
+            position: absolute;
+            left: 13px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .st-item {
+            position: relative;
+            margin-bottom: 0;
+            opacity: 0;
+            transform: translateY(8px);
+            animation: stageIn 0.35s ease forwards;
+        }
+
+        @keyframes stageIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .st-node {
+            position: absolute;
+            left: -28px;
+            top: 16px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            z-index: 1;
+        }
+
+        .st-node.completed { background: var(--success-dim); color: var(--success); border: 2px solid var(--success); }
+        .st-node.failed    { background: var(--error-dim);   color: var(--error);   border: 2px solid var(--error); }
+        .st-node.in-progress { background: var(--warning-dim); color: var(--warning); border: 2px solid var(--warning); animation: pulseNode 2s ease infinite; }
+        .st-node.pending   { background: var(--bg);          color: var(--text-dim); border: 2px solid var(--border); }
+
+        .st-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .st-card.expandable {
+            cursor: pointer;
+        }
+
+        .st-card.expandable:hover {
+            border-color: var(--accent);
+            box-shadow: 0 2px 8px rgba(74,108,247,0.08);
+        }
+
+        .st-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .st-card-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .st-card .st-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .st-card .st-output-pill {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+
+        .st-card .st-output-pill.error {
+            background: var(--error-dim);
+            color: var(--error);
+        }
+
+        .st-card-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .st-card .st-time {
+            font-size: 11px;
+            font-family: var(--mono);
+            color: var(--text-dim);
+        }
+
+        .st-card .st-dur {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 8px;
+            background: var(--surface-hover);
+            color: var(--text-muted);
+        }
+
+        .st-chevron {
+            font-size: 10px;
+            color: var(--text-dim);
+            transition: transform 0.2s;
+        }
+
+        .st-card.open .st-chevron {
+            transform: rotate(90deg);
+        }
+
+        .st-card-body {
+            display: none;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .st-card.open .st-card-body {
+            display: block;
+            animation: stageIn 0.2s ease;
+        }
+
+        .st-kv {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 6px 12px;
+        }
+
+        .st-kv .k {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .st-kv .v {
+            font-size: 12px;
+            color: var(--text);
+            word-break: break-all;
+        }
+
+        /* ── Empty / Loading ── */
+        .empty-state {
+            text-align: center;
+            padding: 80px 24px;
+            color: var(--text-dim);
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.4;
+        }
+
+        .empty-state h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .loading-bar {
+            display: none;
+            height: 3px;
+            background: var(--accent-dim);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loading-bar.active {
+            display: block;
+        }
+
+        .loading-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -40%;
+            width: 40%;
+            height: 100%;
+            background: var(--accent);
+            animation: loadSlide 1.2s ease infinite;
+        }
+
+        @keyframes loadSlide {
+            0%   { left: -40%; }
+            100% { left: 100%; }
+        }
+
+        /* ── Animations ── */
+        @keyframes fadeInRow {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .grid-table tbody tr {
+            animation: fadeInRow 0.25s ease both;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .side-panel { width: 100%; transform: translateX(100%); }
+            .filter-bar { flex-direction: column; align-items: stretch; }
+            .filter-group select, .filter-group input[type="date"] { min-width: auto; width: 100%; }
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .detail-grid { grid-template-columns: 1fr; }
+            .detail-item.full { grid-column: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">ROUTING DIAGNOSTICS</div>
+        <span class="mockup-badge">MOCKUP</span>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label>Date Range</label>
+            <select id="datePreset" onchange="handleDatePreset()">
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="thisWeek" selected>This Week</option>
+                <option value="thisMonth">This Month</option>
+                <option value="last30">Last 30 Days</option>
+                <option value="last90">Last 90 Days</option>
+                <option value="custom">Custom Range…</option>
+            </select>
+            <div class="date-inputs" id="dateInputs">
+                <div class="date-range-row">
+                    <input type="date" id="dateFrom" />
+                    <span>to</span>
+                    <input type="date" id="dateTo" />
+                </div>
+            </div>
+        </div>
+        <div class="filter-group">
+            <label>Workstream</label>
+            <select id="filterWorkstream">
+                <option value="">All Workstreams</option>
+                <option>CCD Record Workstream</option>
+                <option>CCD Messaging Workstream</option>
+                <option>Case Call Back</option>
+                <option>Live Chat Workstream</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Queue</label>
+            <select id="filterQueue">
+                <option value="">All Queues</option>
+                <option>CCD USA Entity Support Queue</option>
+                <option>CCD UK Chat Support Queue</option>
+                <option>CCD Thailand Chat Support Queue</option>
+                <option>Case</option>
+                <option>Billing &amp; Payment</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Routing Status</label>
+            <select id="filterStatus">
+                <option value="">All Statuses</option>
+                <option value="completed">Completed</option>
+                <option value="in-progress">In Progress</option>
+                <option value="failed">Failed</option>
+            </select>
+        </div>
+        <button class="btn-retrieve" id="btnRetrieve" onclick="retrieve()">Retrieve</button>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-bar" id="loadingBar"></div>
+
+    <!-- Stats -->
+    <div class="stats-bar" id="statsBar" style="display:none;">
+        <div><span class="stat-val" id="statTotal">0</span><span class="stat-label"> conversations</span></div>
+        <div><span class="stat-val" id="statCompleted">0</span><span class="stat-label"> completed</span></div>
+        <div><span class="stat-val" id="statFailed">0</span><span class="stat-label"> failed</span></div>
+        <div><span class="stat-val" id="statAvgDuration">0s</span><span class="stat-label"> avg duration</span></div>
+    </div>
+
+    <!-- Grid -->
+    <div class="grid-container" id="gridContainer">
+        <div class="empty-state" id="emptyState">
+            <div class="icon">⊘</div>
+            <h2>Select filters and click Retrieve</h2>
+            <p>Routing diagnostic data will appear here</p>
+        </div>
+
+        <table class="grid-table" id="gridTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th class="sortable">Diagnostic Item <span class="sort-icon">▼</span></th>
+                    <th class="sortable">Routing Status <span class="sort-icon">▼</span></th>
+                    <th class="sortable">Routing Started <span class="sort-icon">▼</span></th>
+                    <th class="sortable">Duration <span class="sort-icon">▼</span></th>
+                    <th class="sortable">Workstream <span class="sort-icon">▼</span></th>
+                    <th class="sortable">Queue <span class="sort-icon">▼</span></th>
+                    <th class="sortable">Assigned Agent <span class="sort-icon">▼</span></th>
+                    <th style="width:40px;"></th>
+                </tr>
+            </thead>
+            <tbody id="gridBody"></tbody>
+        </table>
+    </div>
+
+    <!-- Side Panel Overlay -->
+    <div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
+
+    <!-- Side Panel -->
+    <div class="side-panel" id="sidePanel">
+        <div class="panel-hero" id="panelHero"></div>
+        <div class="progress-tracker" id="progressTracker"></div>
+        <div class="panel-body" id="panelBody"></div>
+    </div>
+
+    <script>
+// ── Sample data ──────────────────────────────────────────────────────────────
+const SAMPLE_DATA = [
+  {
+    id: 'edb95d19-68f6-4837-9a5e-257f530b04f4',
+    item: 'My Coffee Maker has stopped working',
+    status: 'completed',
+    routingStatus: 'Agent assignment - completed',
+    startedOn: '2026-05-19T04:15:00Z',
+    duration: 55,
+    workstream: 'CCD Record Workstream',
+    queue: 'CCD USA Entity Support Queue',
+    agent: 'Eugene Spelmann',
+    workItemStatus: 'Active',
+    stages: [
+      { name: 'Intake',               status: 'completed', output: 'CCD Record Workstream',       start: '2026-05-19T04:15:00Z', end: '2026-05-19T04:15:00Z', duration: 0, details: { 'Rule': 'Default intake rule', 'Workstream': 'CCD Record Workstream', 'Record Type': 'Case' } },
+      { name: 'Classification',       status: 'completed', output: 'Skills: —, —, —, —, —',      start: '2026-05-19T04:16:00Z', end: '2026-05-19T04:16:00Z', duration: 0, details: { 'Rule Set': 'Case Classification', 'Hit Policy': 'Run All', 'Skills Attached': '5 skill rules evaluated' } },
+      { name: 'Route to queue',       status: 'completed', output: 'CCD USA Entity Support Queue', start: '2026-05-19T04:16:00Z', end: '2026-05-19T04:16:00Z', duration: 0, details: { 'Rule Set': 'Case Queue Rules', 'Hit Policy': 'Run All', 'Matched Rule': 'USA Region Cases', 'Queue ID': 'dcb1b43d-ae29-f111-88b3-7ced8d75fba7' } },
+      { name: 'Prioritization',       status: 'completed', output: 'Conversation.Case.Created On…', start: '2026-05-19T04:16:00Z', end: '2026-05-19T04:16:00Z', duration: 0, details: { 'Priority Rule': 'Conversation.Case.Created On', 'Priority Score': '0' } },
+      { name: 'Assignment selection', status: 'completed', output: 'Assignment by Priority',       start: '2026-05-19T04:16:00Z', end: '2026-05-19T04:16:00Z', duration: 0, details: { 'Selection Strategy': 'Assignment by Priority', 'Fallback': 'Round Robin' } },
+      { name: 'Assignment',           status: 'completed', output: 'Round robin',                  start: '2026-05-19T04:16:00Z', end: '2026-05-19T04:16:00Z', duration: 0, details: { 'Method': 'Round Robin', 'Agent': 'Eugene Spelmann', 'Agent ID': 'd8d38f1e-10c4-f011-bbd2-000d3ab89080', 'Presence': 'AVAILABLE', 'Capacity': '70 units' } }
+    ]
+  },
+  {
+    id: 'a1b2c3d4-1111-2222-3333-444455556666',
+    item: 'Visitor: CCD Messaging Workstream',
+    status: 'completed',
+    routingStatus: 'Agent assignment - completed',
+    startedOn: '2026-05-19T13:37:00Z',
+    duration: 1,
+    workstream: 'CCD Messaging Workstream',
+    queue: 'CCD UK Chat Support Queue',
+    agent: 'Eugene Spelmann',
+    workItemStatus: 'Active',
+    stages: [
+      { name: 'Intake',               status: 'completed', output: 'CCD Messaging Workstream',    start: '2026-05-19T13:37:00Z', end: '2026-05-19T13:37:00Z', duration: 0, details: null },
+      { name: 'Classification',       status: 'completed', output: '—',                           start: '2026-05-19T13:37:00Z', end: '2026-05-19T13:37:00Z', duration: 0, details: null },
+      { name: 'Route to queue',       status: 'completed', output: 'CCD UK Chat Support Queue',   start: '2026-05-19T13:37:00Z', end: '2026-05-19T13:37:01Z', duration: 1, details: { 'Rule Set': 'Region-Based Routing', 'Matched Rule': 'UK Visitors', 'Queue': 'CCD UK Chat Support Queue' } },
+      { name: 'Assignment selection', status: 'completed', output: 'Highest Capacity',             start: '2026-05-19T13:37:01Z', end: '2026-05-19T13:37:01Z', duration: 0, details: null },
+      { name: 'Assignment',           status: 'completed', output: 'Eugene Spelmann',              start: '2026-05-19T13:37:01Z', end: '2026-05-19T13:37:01Z', duration: 0, details: { 'Method': 'Highest Capacity', 'Agent': 'Eugene Spelmann', 'Presence': 'AVAILABLE' } }
+    ]
+  },
+  {
+    id: 'b2c3d4e5-2222-3333-4444-555566667777',
+    item: 'Visitor: CCD Messaging Workstream',
+    status: 'completed',
+    routingStatus: 'Agent assignment - completed',
+    startedOn: '2026-05-19T13:29:00Z',
+    duration: 1,
+    workstream: 'CCD Messaging Workstream',
+    queue: 'CCD UK Chat Support Queue',
+    agent: 'Eugene Spelmann',
+    workItemStatus: 'Closed',
+    stages: [
+      { name: 'Intake',               status: 'completed', output: 'CCD Messaging Workstream',    start: '2026-05-19T13:29:00Z', end: '2026-05-19T13:29:00Z', duration: 0, details: null },
+      { name: 'Route to queue',       status: 'completed', output: 'CCD UK Chat Support Queue',   start: '2026-05-19T13:29:00Z', end: '2026-05-19T13:29:01Z', duration: 1, details: null },
+      { name: 'Assignment',           status: 'completed', output: 'Eugene Spelmann',              start: '2026-05-19T13:29:01Z', end: '2026-05-19T13:29:01Z', duration: 0, details: null }
+    ]
+  },
+  {
+    id: 'c3d4e5f6-3333-4444-5555-666677778888',
+    item: 'Visitor: CCD Messaging Workstream',
+    status: 'completed',
+    routingStatus: 'Agent assignment - completed',
+    startedOn: '2026-05-19T12:23:00Z',
+    duration: 152,
+    workstream: 'CCD Messaging Workstream',
+    queue: 'CCD USA Chat Support Queue',
+    agent: 'Eugene Spelmann',
+    workItemStatus: 'Active',
+    stages: [
+      { name: 'Intake',               status: 'completed', output: 'CCD Messaging Workstream',    start: '2026-05-19T12:23:00Z', end: '2026-05-19T12:23:00Z', duration: 0,   details: null },
+      { name: 'Route to queue',       status: 'completed', output: 'CCD USA Chat Support Queue',  start: '2026-05-19T12:23:01Z', end: '2026-05-19T12:23:01Z', duration: 0,   details: null },
+      { name: 'Assignment',           status: 'completed', output: 'Eugene Spelmann',              start: '2026-05-19T12:25:33Z', end: '2026-05-19T12:25:33Z', duration: 152, details: { 'Method': 'Highest Capacity', 'Agent': 'Eugene Spelmann', 'Note': 'Long wait — all agents were at capacity' } }
+    ]
+  },
+  {
+    id: 'd4e5f6a7-4444-5555-6666-777788889999',
+    item: 'Needs Review: Final Presentation',
+    status: 'completed',
+    routingStatus: 'Agent assignment - completed',
+    startedOn: '2026-05-19T12:16:00Z',
+    duration: 1,
+    workstream: 'CCD Record Workstream',
+    queue: 'CCD USA Entity Support Queue',
+    agent: 'Eugene Spelmann',
+    workItemStatus: 'Active',
+    stages: [
+      { name: 'Intake',               status: 'completed', output: 'CCD Record Workstream',       start: '2026-05-19T12:16:00Z', end: '2026-05-19T12:16:00Z', duration: 0, details: null },
+      { name: 'Route to queue',       status: 'completed', output: 'CCD USA Entity Support Queue', start: '2026-05-19T12:16:00Z', end: '2026-05-19T12:16:00Z', duration: 0, details: { 'Rule Set': 'Case Queue Rules', 'Matched Rule': 'Default', 'Queue': 'CCD USA Entity Support Queue' } },
+      { name: 'Assignment',           status: 'completed', output: 'Eugene Spelmann',              start: '2026-05-19T12:16:00Z', end: '2026-05-19T12:16:01Z', duration: 1, details: null }
+    ]
+  },
+  {
+    id: 'e5f6a7b8-5555-6666-7777-888899990000',
+    item: 'Please review',
+    status: 'completed',
+    routingStatus: 'Agent assignment - completed',
+    startedOn: '2026-05-19T12:16:00Z',
+    duration: 1,
+    workstream: 'CCD Record Workstream',
+    queue: 'CCD Thailand Entity Support Que…',
+    agent: 'Eugene Spelmann',
+    workItemStatus: 'Active',
+    stages: [
+      { name: 'Intake',               status: 'completed', output: 'CCD Record Workstream',            start: '2026-05-19T12:16:00Z', end: '2026-05-19T12:16:00Z', duration: 0, details: null },
+      { name: 'Route to queue',       status: 'completed', output: 'CCD Thailand Entity Support Queue', start: '2026-05-19T12:16:00Z', end: '2026-05-19T12:16:00Z', duration: 0, details: null },
+      { name: 'Assignment',           status: 'completed', output: 'Eugene Spelmann',                   start: '2026-05-19T12:16:00Z', end: '2026-05-19T12:16:01Z', duration: 1, details: null }
+    ]
+  },
+  {
+    id: 'f6a7b8c9-6666-7777-8888-999900001111',
+    item: 'Billing issue with subscription renewal',
+    status: 'in-progress',
+    routingStatus: 'Workstream: Route-to-queue rules',
+    startedOn: '2026-05-20T09:42:00Z',
+    duration: 0,
+    workstream: 'CCD Record Workstream',
+    queue: '',
+    agent: '',
+    workItemStatus: 'Active',
+    stages: [
+      { name: 'Intake',               status: 'completed',   output: 'CCD Record Workstream', start: '2026-05-20T09:42:00Z', end: '2026-05-20T09:42:00Z', duration: 0, details: null },
+      { name: 'Classification',       status: 'completed',   output: 'Billing, Renewal',      start: '2026-05-20T09:42:00Z', end: '2026-05-20T09:42:01Z', duration: 1, details: null },
+      { name: 'Route to queue',       status: 'in-progress', output: '—',                     start: '2026-05-20T09:42:01Z', end: null,                    duration: null, details: null }
+    ]
+  },
+  {
+    id: 'a7b8c9d0-7777-8888-9999-000011112222',
+    item: 'Refund not received for order #44821',
+    status: 'failed',
+    routingStatus: 'Assignment - failed',
+    startedOn: '2026-05-20T08:11:00Z',
+    duration: 34,
+    workstream: 'CCD Record Workstream',
+    queue: 'Billing & Payment',
+    agent: '',
+    workItemStatus: 'Active',
+    stages: [
+      { name: 'Intake',               status: 'completed', output: 'CCD Record Workstream', start: '2026-05-20T08:11:00Z', end: '2026-05-20T08:11:00Z', duration: 0,  details: null },
+      { name: 'Classification',       status: 'completed', output: 'Billing',               start: '2026-05-20T08:11:01Z', end: '2026-05-20T08:11:01Z', duration: 0,  details: null },
+      { name: 'Route to queue',       status: 'completed', output: 'Billing & Payment',     start: '2026-05-20T08:11:01Z', end: '2026-05-20T08:11:02Z', duration: 1,  details: null },
+      { name: 'Prioritization',       status: 'completed', output: 'High',                  start: '2026-05-20T08:11:02Z', end: '2026-05-20T08:11:02Z', duration: 0,  details: null },
+      { name: 'Assignment selection', status: 'completed', output: 'Highest Capacity',       start: '2026-05-20T08:11:02Z', end: '2026-05-20T08:11:02Z', duration: 0,  details: null },
+      { name: 'Assignment',           status: 'failed',    output: 'No agents available',    start: '2026-05-20T08:11:02Z', end: '2026-05-20T08:11:34Z', duration: 32, details: { 'Reason': 'No agents available with required capacity', 'Retry Attempts': '3', 'Last Attempt': '2026-05-20T08:11:34Z' } }
+    ]
+  }
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+}
+
+function formatDuration(sec) {
+  if (sec == null) return '—';
+  if (sec === 0) return '0 seconds';
+  if (sec < 60) return `${sec} second${sec !== 1 ? 's' : ''}`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m} min ${s}s`;
+}
+
+function handleDatePreset() {
+  const v = document.getElementById('datePreset').value;
+  document.getElementById('dateInputs').classList.toggle('visible', v === 'custom');
+}
+
+// ── Retrieve (simulated) ─────────────────────────────────────────────────────
+
+function retrieve() {
+  const btn = document.getElementById('btnRetrieve');
+  const bar = document.getElementById('loadingBar');
+  btn.disabled = true;
+  bar.classList.add('active');
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('gridTable').style.display = 'none';
+  document.getElementById('statsBar').style.display = 'none';
+
+  // Simulate loading
+  setTimeout(() => {
+    bar.classList.remove('active');
+    btn.disabled = false;
+    renderGrid(SAMPLE_DATA);
+  }, 1500);
+}
+
+// ── Grid rendering ───────────────────────────────────────────────────────────
+
+function renderGrid(data) {
+  const tbody = document.getElementById('gridBody');
+  tbody.innerHTML = '';
+
+  const completed = data.filter(d => d.status === 'completed').length;
+  const failed = data.filter(d => d.status === 'failed').length;
+  const avgDur = data.length ? Math.round(data.reduce((s, d) => s + d.duration, 0) / data.length) : 0;
+
+  document.getElementById('statTotal').textContent = data.length;
+  document.getElementById('statCompleted').textContent = completed;
+  document.getElementById('statFailed').textContent = failed;
+  document.getElementById('statAvgDuration').textContent = formatDuration(avgDur);
+  document.getElementById('statsBar').style.display = 'flex';
+
+  data.forEach((row, idx) => {
+    const tr = document.createElement('tr');
+    tr.style.animationDelay = `${idx * 0.04}s`;
+    tr.onclick = () => openPanel(row, tr);
+
+    tr.innerHTML = `
+      <td class="item-name">${row.item}</td>
+      <td><span class="status-pill ${row.status}">${row.routingStatus}</span></td>
+      <td>${formatDateTime(row.startedOn)}</td>
+      <td class="mono">${formatDuration(row.duration)}</td>
+      <td>${row.workstream}</td>
+      <td>${row.queue || '—'}</td>
+      <td>${row.agent || '—'}</td>
+      <td><span class="expand-arrow">▼</span></td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('gridTable').style.display = 'table';
+}
+
+// ── Side panel ───────────────────────────────────────────────────────────────
+
+let activeRow = null;
+
+const STAGE_ICONS = {
+  'Intake': '⬇', 'Classification': '🏷', 'Route to queue': '➜',
+  'Prioritization': '⚡', 'Assignment selection': '🎯', 'Assignment': '👤'
+};
+
+function getOverallColor(data) {
+  if (data.status === 'failed') return 'error';
+  if (data.status === 'in-progress') return 'warning';
+  return 'success';
+}
+
+function openPanel(data, rowEl) {
+  if (activeRow) activeRow.classList.remove('selected');
+  activeRow = rowEl;
+  rowEl.classList.add('selected');
+
+  const color = getOverallColor(data);
+
+  // ── Hero header ──
+  document.getElementById('panelHero').innerHTML = `
+    <div class="panel-hero-top">
+      <div>
+        <div class="panel-overline">Routing Diagnostics</div>
+        <div class="panel-title">${data.item}</div>
+        <div class="panel-status-row">
+          <span class="status-pill ${data.status}">${data.routingStatus}</span>
+        </div>
+      </div>
+      <button class="panel-close" onclick="closePanel()">✕</button>
+    </div>`;
+
+  // ── Progress tracker ──
+  const allStageNames = ['Intake','Classification','Route to queue','Prioritization','Assignment selection','Assignment'];
+  const stageMap = {};
+  data.stages.forEach(s => { stageMap[s.name] = s.status; });
+
+  let trackerHtml = '';
+  let reachedEnd = false;
+  allStageNames.forEach((name, i) => {
+    const st = stageMap[name] || (reachedEnd ? 'pending' : 'pending');
+    if (!stageMap[name]) reachedEnd = true;
+    const icon = st === 'completed' ? '✓' : st === 'failed' ? '✗' : st === 'in-progress' ? '…' : (i+1);
+    const connectorDone = (st === 'completed' && i < allStageNames.length - 1 && (stageMap[allStageNames[i+1]] === 'completed' || stageMap[allStageNames[i+1]] === 'failed' || stageMap[allStageNames[i+1]] === 'in-progress')) ? 'done' : '';
+    const isActive = st === 'in-progress' || st === 'failed';
+    trackerHtml += `<div class="pt-step${isActive ? ' active' : ''}">
+      <div class="pt-connector ${connectorDone}"></div>
+      <div class="pt-node ${st}">${icon}</div>
+      <div class="pt-label">${name}</div>
+    </div>`;
+  });
+  document.getElementById('progressTracker').innerHTML = trackerHtml;
+
+  // ── Body ──
+  const completedStages = data.stages.filter(s => s.status === 'completed').length;
+  const totalStages = data.stages.length;
+
+  let bodyHtml = '';
+
+  // KPI row
+  bodyHtml += `<div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-val accent">${data.workstream.replace('CCD ','').replace(' Workstream','')}</div><div class="kpi-label">Workstream</div></div>
+    <div class="kpi-card"><div class="kpi-val ${color}">${formatDuration(data.duration)}</div><div class="kpi-label">Duration</div></div>
+    <div class="kpi-card"><div class="kpi-val ${color}">${completedStages}/${totalStages}</div><div class="kpi-label">Stages</div></div>
+    <div class="kpi-card"><div class="kpi-val ${data.agent ? 'success' : 'warning'}">${data.agent ? '✓' : '—'}</div><div class="kpi-label">Agent</div></div>
+  </div>`;
+
+  // Details section
+  bodyHtml += `<div class="detail-section">
+    <div class="detail-section-title"><span class="ds-icon">📋</span> Details</div>
+    <div class="detail-grid">
+      <div class="detail-item"><div class="di-label">Work Item</div><div class="di-value link">${data.item}</div></div>
+      <div class="detail-item"><div class="di-label">Status</div><div class="di-value">${data.workItemStatus}</div></div>
+      <div class="detail-item"><div class="di-label">Workstream</div><div class="di-value link">${data.workstream}</div></div>
+      <div class="detail-item"><div class="di-label">Queue</div><div class="di-value link">${data.queue || '—'}</div></div>
+      <div class="detail-item"><div class="di-label">Routed Agent</div><div class="di-value link">${data.agent || '—'}</div></div>
+      <div class="detail-item"><div class="di-label">Started On</div><div class="di-value">${formatDateTime(data.startedOn)}</div></div>
+      <div class="detail-item full"><div class="di-label">Conversation ID</div><div class="di-value mono">${data.id}</div></div>
+    </div>
+  </div>`;
+
+  // Stage timeline
+  bodyHtml += `<div class="detail-section" style="border-bottom:none;">
+    <div class="detail-section-title"><span class="ds-icon">⚙</span> Routing Stages</div>
+    <div class="stage-timeline">${renderStageTimeline(data.stages)}</div>
+  </div>`;
+
+  document.getElementById('panelBody').innerHTML = bodyHtml;
+
+  document.getElementById('panelOverlay').classList.add('open');
+  document.getElementById('sidePanel').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('panelOverlay').classList.remove('open');
+  document.getElementById('sidePanel').classList.remove('open');
+  if (activeRow) activeRow.classList.remove('selected');
+  activeRow = null;
+}
+
+function renderStageTimeline(stages) {
+  let html = '';
+  stages.forEach((s, i) => {
+    const icon = s.status === 'completed' ? '✓' : s.status === 'failed' ? '✗' : '…';
+    const hasDetails = s.details && Object.keys(s.details).length > 0;
+    const outputPillClass = s.status === 'failed' ? 'error' : '';
+    const timeStr = s.start ? new Date(s.start).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' }) : '—';
+
+    html += `<div class="st-item" style="animation-delay:${i * 0.07}s">
+      <div class="st-node ${s.status}">${icon}</div>
+      <div class="st-card${hasDetails ? ' expandable' : ''}" ${hasDetails ? `onclick="this.classList.toggle('open')"` : ''}>
+        <div class="st-card-header">
+          <div class="st-card-left">
+            <span class="st-name">${STAGE_ICONS[s.name] || '●'} ${s.name}</span>
+            <span class="st-output-pill ${outputPillClass}">${s.output}</span>
+          </div>
+          <div class="st-card-right">
+            <span class="st-time">${timeStr}</span>
+            ${s.duration != null && s.duration > 0 ? `<span class="st-dur">${formatDuration(s.duration)}</span>` : ''}
+            ${hasDetails ? '<span class="st-chevron">▸</span>' : ''}
+          </div>
+        </div>
+        ${hasDetails ? `<div class="st-card-body"><div class="st-kv">
+          ${Object.entries(s.details).map(([k,v]) => `<span class="k">${k}</span><span class="v">${v}</span>`).join('')}
+        </div></div>` : ''}
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+// Close panel on Escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+    </script>
+</body>
+</html>
