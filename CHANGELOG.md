@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [1.0.4] — 2026-06-30
+
+### Routing Story — Grouped "Rules Executed" in the Assignment card
+
+The **Rules Executed** evidence inside the *Agent Selected* (assignment) card is now organized to mirror the queue's **Assignment method** structure, instead of being shown as a flat list of raw fields. The rules are split into up to three ordered sub-headings that follow the actual routing lifecycle:
+
+1. **Prioritization** *(configured on queue)* — the prioritization ruleset that set the conversation's order within the queue (`PrioritizationRuleExecuted`).
+2. **Selection** — the selection ruleset that determined which agents were eligible (`SelectionRuleExecuted`).
+3. **Assignment** — the assignment rule / ruleset that picked the final agent (`AssignmentRuleExecuted`, `AssignmentRuleSetExecuted`).
+
+Each rule continues to resolve its GUID to the human-readable rule name, condition, and owning ruleset. Empty groups are hidden automatically — so conversations whose telemetry did not emit a prioritization or selection rule simply omit that sub-heading rather than showing a blank or zero-GUID entry. This makes it immediately clear *why* a conversation was prioritized and assigned the way it was, without changing the timeline or inventing telemetry events that the platform does not emit.
+
+### Grid performance — pagination
+
+The diagnostics grid now paginates results (50 / 100 / 250 / 500 per page) with Prev/Next navigation and a live record-count indicator. Previously, retrieving large result sets (~2,000 records) rendered every row at once with cumulative entry animations, which could freeze the browser. Row animation delays are now capped, and only the current page is rendered, keeping the grid responsive on large environments.
+
+### Data hygiene
+
+- Zero-GUIDs (`00000000-0000-0000-0000-000000000000`) are now treated as empty and hidden across the detail panel.
+- Assignment ruleset GUIDs resolve to their ruleset name (typed as *Rule Set*) via an expanded rule index.
+
+> Web resource internal version: **v3.4.1**. Solution version: **1.0.0.4**.
+
+---
+
 ## [1.0.3] — 2026-05-24
 
 ### Routing Diagnostics Grid — A New Way to Investigate Routing

@@ -138,7 +138,15 @@
         .grid-table tbody tr:hover .expand-arrow { color: var(--accent); background: var(--accent-dim); }
         .grid-table tbody tr.selected .expand-arrow { color: var(--accent); transform: rotate(180deg); }
 
-        /* ── Grid row Copilot icon ── */
+        /* ── Pagination ── */
+        .pagination-bar { display: none; align-items: center; justify-content: flex-end; gap: 12px; padding: 12px 4px 0; font-size: 12px; color: var(--text-muted); }
+        .pagination-bar .pg-info { margin-right: auto; }
+        .pagination-bar select { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; font-size: 12px; cursor: pointer; }
+        .pagination-bar button { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s; }
+        .pagination-bar button:hover:not(:disabled) { color: var(--accent); border-color: rgba(124,58,237,0.35); background: var(--accent-dim); }
+        .pagination-bar button:disabled { opacity: 0.4; cursor: default; }
+        .pagination-bar .pg-page { min-width: 90px; text-align: center; }
+
         .grid-row-actions { display: inline-flex; align-items: center; gap: 4px; }
         .grid-copilot-btn {
           display: inline-flex; align-items: center; justify-content: center;
@@ -400,6 +408,17 @@
         .status-ind.si-error { background: var(--error-dim); color: var(--error); }
         .status-ind.si-warning { background: var(--warning-dim); color: var(--warning); }
         .status-ind.si-muted { background: var(--bg); color: var(--text-dim); }
+        .rule-resolved { margin: 4px 0; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius); display: flex; flex-direction: column; gap: 4px; }
+        .rule-resolved .rr-name { font-weight: 700; color: var(--text); font-size: 13px; }
+        .rule-resolved .rr-cond { font-size: 12px; color: var(--text); line-height: 1.5; word-break: break-word; }
+        .rule-resolved .rr-tag { display: inline-block; min-width: 38px; font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 0.4px; }
+        .rule-resolved .rr-meta { font-size: 11px; color: var(--text-dim); font-family: var(--mono); margin-top: 2px; }
+        .guid-resolved { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text); }
+        .guid-resolved .gr-type { font-size: 10px; font-weight: 600; color: var(--accent); background: var(--accent-dim); padding: 1px 6px; border-radius: 10px; letter-spacing: 0.3px; }
+        .rules-grouped { display: flex; flex-direction: column; gap: 10px; margin: 4px 0; }
+        .rules-grouped .rg-group { display: flex; flex-direction: column; gap: 4px; }
+        .rules-grouped .rg-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.4px; }
+        .rules-grouped .rg-note { font-size: 10px; font-weight: 600; color: var(--text-dim); text-transform: none; letter-spacing: 0; }
         .st-sub-header { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border); }
         .st-sub-header:first-child { margin-top: 0; padding-top: 0; border-top: none; }
 
@@ -514,7 +533,7 @@
 
     <div class="header">
         <div class="logo">ROUTING DIAGNOSTICS</div>
-        <span class="version">v3.3.0-copilot-gate</span>
+        <span class="version">v3.4.1</span>
     </div>
 
     <div class="filter-bar">
@@ -665,9 +684,24 @@
                     </thead>
                     <tbody id="gridBody"></tbody>
                 </table>
+                <div class="pagination-bar" id="paginationBar">
+                    <span class="pg-info" id="pgInfo"></span>
+                    <label>Rows per page
+                        <select id="pgSize" onchange="changePageSize(this.value)">
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="250">250</option>
+                            <option value="500">500</option>
+                        </select>
+                    </label>
+                    <button id="pgPrev" onclick="gotoPage(-1)">‹ Prev</button>
+                    <span class="pg-page" id="pgPage"></span>
+                    <button id="pgNext" onclick="gotoPage(1)">Next ›</button>
+                </div>
             </div>
         </div>
     </div>
+
 
     <!-- Copilot Panel (fixed, independent of page scroll) -->
     <div class="copilot-panel" id="copilotPanel">
@@ -726,12 +760,198 @@ function getStageNamesForChannel(channel) {
 
 let currentData = [];
 let currentSort = { field: 'routingStartedOn', dir: 'desc' };
+let currentPage = 1;
+let pageSize = 50;
 
 // ── Xrm helpers ──────────────────────────────────────────────────────────────
 
 function getXrm() {
   return (typeof Xrm !== 'undefined') ? Xrm : (window.parent?.Xrm ? window.parent.Xrm : null);
 }
+
+// ── Rule resolution (GUID → name + condition) ────────────────────────────────
+// Builds an in-memory index of every routing rule (id → name/condition/action)
+// by reading msdyn_decisionruleset.msdyn_rulesetdefinition (XML). The executed
+// rule GUIDs emitted in diagnostics telemetry match the <rule id="..."> values,
+// so we can replace the raw GUID with the human-readable condition.
+const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function directChild(el, tag) {
+  if (!el) return null;
+  for (const c of el.children) { if (c.tagName.toLowerCase() === tag) return c; }
+  return null;
+}
+function directChildren(el, tag) {
+  const out = [];
+  if (!el) return out;
+  for (const c of el.children) { if (c.tagName.toLowerCase() === tag) out.push(c); }
+  return out;
+}
+
+// Strip known technical prefixes to make attribute paths friendlier.
+function prettyAttr(path) {
+  if (!path) return '';
+  return String(path).replace(/^liveworkitemcontext\./i, '').trim();
+}
+
+// Map a raw value to a friendly name when it is a known entity GUID.
+function friendlyVal(v) {
+  if (v && GUID_RE.test(v)) {
+    const idx = window.__GUID_INDEX;
+    const hit = idx && idx[v.toLowerCase()];
+    if (hit && hit.name) return hit.name;
+  }
+  return v;
+}
+
+function conditionText(cond) {
+  const operator = cond.getAttribute('operator') || '';
+  const lhs = directChild(cond, 'lhs');
+  const rhs = directChild(cond, 'rhs');
+  const l = lhs ? prettyAttr(lhs.textContent) : '';
+  const r = rhs ? friendlyVal((rhs.textContent || '').trim()) : '';
+  return `${l} ${operator}${r !== '' ? " '" + r + "'" : ''}`.trim();
+}
+
+function buildLogicalText(node) {
+  const op = (node.getAttribute('operator') || 'AND').toUpperCase();
+  const parts = [];
+  for (const child of node.children) {
+    const tag = child.tagName.toLowerCase();
+    if (tag === 'logical') {
+      const inner = buildLogicalText(child);
+      if (inner) parts.push(inner.includes(' AND ') || inner.includes(' OR ') ? '(' + inner + ')' : inner);
+    } else if (tag === 'condition') {
+      const c = conditionText(child);
+      if (c) parts.push(c);
+    }
+  }
+  return parts.join(' ' + op + ' ');
+}
+
+function buildRuleCondition(rule) {
+  const logical = directChild(rule, 'logical');
+  return logical ? buildLogicalText(logical) : '';
+}
+
+function buildRuleAction(rule) {
+  const action = directChild(rule, 'action');
+  if (!action) return '';
+  const setattrs = directChildren(action, 'setattribute');
+  const parts = setattrs.map(sa => {
+    const l = directChild(sa, 'lhs');
+    const r = directChild(sa, 'rhs');
+    const lv = l ? prettyAttr(l.textContent) : '';
+    const rv = friendlyVal(r ? (r.textContent || '').trim() : '');
+    return `set ${lv} = '${rv}'`;
+  });
+  return parts.join('; ');
+}
+
+// Generic entity resolution. "Capacity Profile" is only one example — ANY GUID
+// emitted in diagnostics is matched against these routing-relevant tables and
+// replaced with its friendly name. To support a new kind of entity, just add a
+// single { set, id, name, type } entry below.
+const ENTITY_RESOLVERS = [
+  { set: 'queue',                 id: 'queueid',                 name: 'name',       type: 'Queue' },
+  { set: 'msdyn_capacityprofile', id: 'msdyn_capacityprofileid', name: 'msdyn_name', type: 'Capacity Profile' },
+  { set: 'msdyn_liveworkstream',  id: 'msdyn_liveworkstreamid',  name: 'msdyn_name', type: 'Workstream' },
+  { set: 'characteristic',        id: 'characteristicid',        name: 'name',       type: 'Skill' },
+  { set: 'team',                  id: 'teamid',                  name: 'name',       type: 'Team' },
+  { set: 'systemuser',            id: 'systemuserid',            name: 'fullname',   type: 'Agent' }
+];
+
+async function loadEntityIndexes() {
+  const idx = window.__GUID_INDEX || {};
+  const xrm = getXrm();
+  if (!xrm) { window.__GUID_INDEX = idx; return idx; }
+  await Promise.all(ENTITY_RESOLVERS.map(async r => {
+    try {
+      const res = await xrm.WebApi.retrieveMultipleRecords(r.set, `?$select=${r.id},${r.name}`);
+      res.entities.forEach(e => {
+        const id = e[r.id];
+        if (id) idx[id.toLowerCase()] = { name: e[r.name] || '', type: r.type };
+      });
+    } catch (e) {
+      console.warn(`[RDG] entity index '${r.set}' failed:`, e.message || e);
+    }
+  }));
+  window.__GUID_INDEX = idx;
+  console.log('[RDG] Entity index loaded:', Object.keys(idx).length, 'records');
+  return idx;
+}
+
+async function loadRuleIndex() {
+  const idx = {};
+  try {
+    const xrm = getXrm();
+    if (!xrm) return;
+    // Entity indexes first so rule conditions/actions show names instead of GUIDs.
+    await loadEntityIndexes();
+    const res = await xrm.WebApi.retrieveMultipleRecords(
+      'msdyn_decisionruleset', '?$select=msdyn_name,msdyn_decisionrulesetid,msdyn_rulesetdefinition');
+    const parser = new DOMParser();
+    res.entities.forEach(rs => {
+      // Index the ruleset id itself so AssignmentRuleSetExecuted resolves to its name.
+      const rsId = (rs.msdyn_decisionrulesetid || '').toLowerCase();
+      if (rsId && window.__GUID_INDEX && !window.__GUID_INDEX[rsId]) {
+        window.__GUID_INDEX[rsId] = { name: rs.msdyn_name || '', type: 'Rule Set' };
+      }
+      const xmlStr = rs.msdyn_rulesetdefinition;
+      if (!xmlStr) return;
+      let doc;
+      try { doc = parser.parseFromString(xmlStr, 'text/xml'); } catch { return; }
+      if (doc.getElementsByTagName('parsererror').length) return;
+      const rules = doc.getElementsByTagName('rule');
+      for (const rule of rules) {
+        const id = (rule.getAttribute('id') || '').toLowerCase();
+        if (!id) continue;
+        idx[id] = {
+          name: rule.getAttribute('name') || '',
+          ruleset: rs.msdyn_name || '',
+          condition: buildRuleCondition(rule),
+          action: buildRuleAction(rule)
+        };
+      }
+    });
+    window.__RULE_INDEX = idx;
+    console.log('[RDG] Rule index loaded:', Object.keys(idx).length, 'rules from', res.entities.length, 'rulesets');
+  } catch (e) {
+    window.__RULE_INDEX = idx;
+    console.warn('[RDG] loadRuleIndex failed (rule GUIDs will not be resolved):', e);
+  }
+}
+
+// Returns friendly HTML for a rule GUID, or null if the value is not a known rule id.
+function resolveRuleGuid(str) {
+  if (!str || typeof str !== 'string') return null;
+  const guid = str.trim().toLowerCase();
+  if (!GUID_RE.test(guid)) return null;
+  const idx = window.__RULE_INDEX;
+  if (!idx || !idx[guid]) return null;
+  const r = idx[guid];
+  let html = `<div class="rule-resolved"><div class="rr-name">${escapeHtml(r.name || 'Rule')}</div>`;
+  if (r.condition) html += `<div class="rr-cond"><span class="rr-tag">IF</span> ${escapeHtml(r.condition)}</div>`;
+  if (r.action)    html += `<div class="rr-cond"><span class="rr-tag">THEN</span> ${escapeHtml(r.action)}</div>`;
+  html += `<div class="rr-meta">${r.ruleset ? escapeHtml(r.ruleset) + ' · ' : ''}${escapeHtml(guid)}</div></div>`;
+  return html;
+}
+
+// Generic GUID resolver: a rich rule block when the GUID is a routing rule,
+// otherwise a compact "name (type)" chip when it matches any known entity.
+function resolveGuid(str) {
+  const ruleHtml = resolveRuleGuid(str);
+  if (ruleHtml) return ruleHtml;
+  if (!str || typeof str !== 'string') return null;
+  const guid = str.trim().toLowerCase();
+  if (!GUID_RE.test(guid)) return null;
+  if (guid === '00000000-0000-0000-0000-000000000000') return null;
+  const idx = window.__GUID_INDEX;
+  const hit = idx && idx[guid];
+  if (!hit || !hit.name) return null;
+  return `<span class="guid-resolved">${escapeHtml(hit.name)}<span class="gr-type">${escapeHtml(hit.type)}</span></span>`;
+}
+
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -1158,6 +1378,7 @@ function renderGrid(data) {
     document.getElementById('emptyState').querySelector('p').textContent = 'Try adjusting your filters or date range';
     document.getElementById('emptyState').style.display = 'block';
     document.getElementById('statsBar').style.display = 'none';
+    document.getElementById('paginationBar').style.display = 'none';
     return;
   }
 
@@ -1176,9 +1397,17 @@ function renderGrid(data) {
   // Sort
   const sorted = sortData(data, currentSort.field, currentSort.dir);
 
-  sorted.forEach((row, idx) => {
+  // Paginate — only render the current page so large datasets don't freeze the UI.
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+  const startIdx = (currentPage - 1) * pageSize;
+  const pageRows = sorted.slice(startIdx, startIdx + pageSize);
+
+  pageRows.forEach((row, idx) => {
     const tr = document.createElement('tr');
-    tr.style.animationDelay = `${idx * 0.03}s`;
+    // Cap the stagger so it never accumulates into seconds of delay.
+    tr.style.animationDelay = `${Math.min(idx, 20) * 0.02}s`;
     tr.onclick = () => openPanel(row, tr);
 
     tr.innerHTML = `
@@ -1194,7 +1423,34 @@ function renderGrid(data) {
   });
 
   document.getElementById('gridTable').style.display = 'table';
+  renderPagination(sorted.length, totalPages, startIdx, pageRows.length);
 }
+
+// ── Pagination ───────────────────────────────────────────────────────────────
+
+function renderPagination(total, totalPages, startIdx, shown) {
+  const bar = document.getElementById('paginationBar');
+  if (total <= pageSize) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  document.getElementById('pgInfo').textContent =
+    `Showing ${startIdx + 1}–${startIdx + shown} of ${total}`;
+  document.getElementById('pgPage').textContent = `Page ${currentPage} / ${totalPages}`;
+  document.getElementById('pgPrev').disabled = currentPage <= 1;
+  document.getElementById('pgNext').disabled = currentPage >= totalPages;
+}
+
+function gotoPage(delta) {
+  currentPage += delta;
+  renderGrid(currentData);
+  document.getElementById('gridContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function changePageSize(val) {
+  pageSize = parseInt(val, 10) || 50;
+  currentPage = 1;
+  renderGrid(currentData);
+}
+
 
 // ── Sorting ──────────────────────────────────────────────────────────────────
 
@@ -1230,6 +1486,7 @@ function sortGrid(th) {
   th.classList.add('sorted');
   th.querySelector('.sort-icon').textContent = currentSort.dir === 'asc' ? '▲' : '▼';
 
+  currentPage = 1;
   renderGrid(currentData);
 }
 
@@ -2500,6 +2757,7 @@ function isEmptyValue(v) {
   if (typeof v === 'string') {
     const s = v.trim();
     if (s === '' || s === '""' || s === '{}' || s === '[]' || s === 'null') return true;
+    if (s === '00000000-0000-0000-0000-000000000000') return true;
     try {
       const p = JSON.parse(s);
       if (p && typeof p === 'object') {
@@ -2515,7 +2773,41 @@ function isEmptyValue(v) {
 }
 
 function needsFullWidth(html) {
-  return html.includes('json-sub') || html.includes('xml-block') || html.includes('xml-section') || html.includes('tag-list');
+  return html.includes('json-sub') || html.includes('xml-block') || html.includes('xml-section') || html.includes('tag-list') || html.includes('rule-resolved') || html.includes('rules-grouped');
+}
+
+// Assignment "Rules Executed" — grouped by the queue's assignment-method structure:
+// Prioritization (order in queue) → Selection (which ruleset) → Assignment (which agent).
+const RULES_EXECUTED_GROUPS = [
+  { title: 'Prioritization', keys: ['PrioritizationRuleExecuted'], note: 'configured on queue' },
+  { title: 'Selection',      keys: ['SelectionRuleExecuted'] },
+  { title: 'Assignment',     keys: ['AssignmentRuleExecuted', 'AssignmentRuleSetExecuted'] }
+];
+
+function isRulesExecutedObject(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+  return ['PrioritizationRuleExecuted', 'SelectionRuleExecuted', 'AssignmentRuleExecuted', 'AssignmentRuleSetExecuted']
+    .some(k => k in obj);
+}
+
+function renderRulesExecuted(obj) {
+  let html = '<div class="rules-grouped">';
+  let any = false;
+  RULES_EXECUTED_GROUPS.forEach(g => {
+    const vals = [];
+    g.keys.forEach(k => {
+      const v = obj[k];
+      if (isEmptyValue(v)) return;
+      const str = String(v).trim();
+      const resolved = resolveGuid(str) || `<span class="guid-resolved">${escapeHtml(str)}</span>`;
+      vals.push(resolved);
+    });
+    if (!vals.length) return;
+    any = true;
+    html += `<div class="rg-group"><div class="rg-title">${escapeHtml(g.title)}${g.note ? ` <span class="rg-note">(${escapeHtml(g.note)})</span>` : ''}</div>${vals.join('')}</div>`;
+  });
+  html += '</div>';
+  return any ? html : '<span class="empty">—</span>';
 }
 
 function renderJsonObject(obj) {
@@ -2544,8 +2836,11 @@ function formatSubValue(v) {
   if (typeof v === 'boolean') return v ? 'true' : 'false';
   if (typeof v === 'number') return String(v);
   if (Array.isArray(v)) return v.length ? renderJsonArray(v) : '<span class="empty">—</span>';
-  if (typeof v === 'object') return renderJsonObject(v);
+  if (typeof v === 'object') return isRulesExecutedObject(v) ? renderRulesExecuted(v) : renderJsonObject(v);
   const str = String(v);
+  // Routing GUID → rule condition (rich) or entity name (generic)
+  const ruleHtml = resolveGuid(str);
+  if (ruleHtml) return ruleHtml;
   // Status indicators (RI_ codes)
   const statusHtml = formatStatusValue(str);
   if (statusHtml) return statusHtml;
@@ -2553,6 +2848,7 @@ function formatSubValue(v) {
   try {
     const p = JSON.parse(str);
     if (p && typeof p === 'object') {
+      if (isRulesExecutedObject(p)) return renderRulesExecuted(p);
       return Array.isArray(p) ? renderJsonArray(p) : renderJsonObject(p);
     }
   } catch {}
@@ -2572,6 +2868,9 @@ function formatDetailValue(val) {
   if (val == null || val === '') return '<span class="empty">—</span>';
   const str = String(val).trim();
   if (str === '' || str === '""' || str === 'null') return '<span class="empty">—</span>';
+  // Routing GUID → rule condition (rich) or entity name (generic)
+  const ruleHtml = resolveGuid(str);
+  if (ruleHtml) return ruleHtml;
   // Status indicators (RI_ codes)
   const statusHtml = formatStatusValue(str);
   if (statusHtml) return statusHtml;
@@ -2579,6 +2878,7 @@ function formatDetailValue(val) {
   try {
     const parsed = JSON.parse(str);
     if (parsed && typeof parsed === 'object') {
+      if (isRulesExecutedObject(parsed)) return renderRulesExecuted(parsed);
       return Array.isArray(parsed) ? renderJsonArray(parsed) : renderJsonObject(parsed);
     }
   } catch {}
@@ -2633,6 +2933,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel()
 window.addEventListener('DOMContentLoaded', () => {
   preloadFilterDropdowns();
   loadFromDataverse();
+  loadRuleIndex();
   initCopilotButton();
 });
 
